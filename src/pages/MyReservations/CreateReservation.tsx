@@ -171,11 +171,29 @@ export default function CreateReservation() {
               size="md"
               variant="primary"
               onClick={() => {
+                const newReservation = {
+                  computer: selectedComputer,
+                  date: selectedDateTime.toISOString(),
+                  timeSlot: selectedSlot,
+                  duration,
+                  purpose,
+                  notes,
+                  status: "Pending",
+                };
+
+                const storedReservations = localStorage.getItem("reservations");
+                const reservations = storedReservations ? JSON.parse(storedReservations) : [];
+
+                reservations.push(newReservation);
+                localStorage.setItem("reservations", JSON.stringify(reservations));
+
+                // Optional: Confirm or redirect
                 window.location.href = "/my-reservations/summary";
               }}
             >
               Confirm Reservation
             </Button>
+
           </div>
         </div>
       </div>

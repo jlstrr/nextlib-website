@@ -59,7 +59,7 @@ export default function VerificationForm() {
                   <Label>
                     Enter code <span className="text-error-500">*</span>{" "}
                   </Label>
-                  <Input type="email" placeholder="yourname@gmail.com" />
+                  <Input type="text" placeholder="123456789" value="123456789" />
                 </div>
                 <div>
                   <Button className="w-full" size="sm">

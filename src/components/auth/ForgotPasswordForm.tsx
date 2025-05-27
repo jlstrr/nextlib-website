@@ -59,7 +59,7 @@ export default function ForgotPasswordForm() {
                   <Label>
                     Email <span className="text-error-500">*</span>{" "}
                   </Label>
-                  <Input type="email" placeholder="yourname@gmail.com" />
+                  <Input type="email" placeholder="yourname@gmail.com" value="zyrahclaire@gmail.com"/>
                 </div>
                 <div>
                   <Button

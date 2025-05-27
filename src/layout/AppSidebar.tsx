@@ -30,10 +30,7 @@ const navItems: NavItem[] = [
   {
     icon: <CalenderIcon />,
     name: "Reservations",
-    subItems: [
-      { name: "My Reservations", path: "/my-reservations", pro: false },
-      { name: "Create Reservation", path: "/my-reservations/create", pro: false },
-    ],
+    path: "/my-reservations",
   },
   {
     icon: <ListIcon />,

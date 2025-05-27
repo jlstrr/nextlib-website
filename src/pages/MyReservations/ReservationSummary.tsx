@@ -1,9 +1,22 @@
+import { useEffect, useState } from "react";
 import { FaCheckCircle, FaInfoCircle } from "react-icons/fa";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import Button from "../../components/ui/button/Button";
 
 export default function ReservationSummary() {
+  const [reservation, setReservation] = useState<any>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("reservations");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed.length > 0) {
+        setReservation(parsed[parsed.length - 1]); // Latest entry
+      }
+    }
+  }, []);
+
   return (
     <div>
       <PageMeta
@@ -28,38 +41,48 @@ export default function ReservationSummary() {
           </p>
 
           {/* Reservation Details */}
-          <div className="grid grid-cols-2 gap-4 rounded-lg bg-gray-50 px-6 py-4 text-sm text-gray-700 mb-6 dark:border-gray-800 dark:bg-white/[0.03] dark:text-white">
-            <p>
-              <strong>Reservation ID</strong>
-              <br />
-              #RSV25011501
+          {reservation ? (
+            <div className="grid grid-cols-2 gap-4 rounded-lg bg-gray-50 px-6 py-4 text-sm text-gray-700 mb-6 dark:border-gray-800 dark:bg-white/[0.03] dark:text-white">
+              <p>
+                <strong>Reservation ID</strong>
+                <br />
+                #{Math.floor(100000 + Math.random() * 900000)}
+              </p>
+              <p>
+                <strong>Time Slot</strong>
+                <br />
+                {reservation.timeSlot}
+              </p>
+              <p>
+                <strong>Computer Station</strong>
+                <br />
+                {reservation.computer}
+              </p>
+              <p>
+                <strong>Purpose</strong>
+                <br />
+                {reservation.purpose}
+              </p>
+              <p>
+                <strong>Date</strong>
+                <br />
+                {new Date(reservation.date).toLocaleDateString(undefined, {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </p>
+              <p>
+                <strong>Status</strong>
+                <br />
+                {reservation.status || "Pending"}
+              </p>
+            </div>
+          ) : (
+            <p className="text-center text-sm text-gray-400 mb-6">
+              No reservation found.
             </p>
-            <p>
-              <strong>Time Slot</strong>
-              <br />
-              10:00 - 11:00
-            </p>
-            <p>
-              <strong>Computer Station</strong>
-              <br />
-              PC-02
-            </p>
-            <p>
-              <strong>Purpose</strong>
-              <br />
-              Research
-            </p>
-            <p>
-              <strong>Date</strong>
-              <br />
-              January 15, 2025
-            </p>
-            <p>
-              <strong>Status</strong>
-              <br />
-              Research
-            </p>
-          </div>
+          )}
 
           {/* Info Box */}
           <div className="mb-6 rounded-md bg-blue-50 dark:bg-blue-800/[0.20] p-4 text-sm text-blue-500">

@@ -6,8 +6,8 @@ export default function NewPassword() {
   return (
     <>
       <PageMeta
-        title="Forgot Password | iReserve System"
-        description="This is the forgot password page for iReserve System, where users can securely reset their password to regain access to their account."
+        title="New Password | iReserve System"
+        description="This is the new password page for iReserve System, where users can set a new password after a password reset request."
       />
       <AuthLayout>
         <NewPasswordForm />
