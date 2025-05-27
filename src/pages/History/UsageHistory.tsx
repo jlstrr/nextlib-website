@@ -71,7 +71,7 @@ export default function UsageHistoryPage() {
     return {
       date: formatDate(res.date),
       pc: res.computer || "--",
-      timeIn: startTime || "--:--",
+      timeIn: "--:--",
       timeOut: isPending || isCancelled ? "--:--" : endTime || "--:--",
       duration: isPending || isCancelled ? "--" : res.duration || "--",
       purpose: res.purpose || "--",
