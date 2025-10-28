@@ -1,4 +1,6 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router";
+import { useRef, useEffect } from "react";
+import LoadingBar from "react-top-loading-bar";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
@@ -31,9 +33,33 @@ import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
 
 export default function App() {
+  const loadingRef = useRef<any>(null);
+
+  function RouteChangeHandler() {
+    const location = useLocation();
+
+    useEffect(() => {
+      if (!loadingRef.current) return;
+
+      // Start a continuous loading animation on route change
+      loadingRef.current.continuousStart();
+
+      // Ensure completion shortly after navigation to give a smooth preview
+      const timer = setTimeout(() => {
+        loadingRef.current.complete();
+      }, 450);
+
+      return () => clearTimeout(timer);
+    }, [location]);
+
+    return null;
+  }
+
   return (
     <>
+      <LoadingBar color="#2563eb" height={3} ref={loadingRef} />
       <Router>
+        <RouteChangeHandler />
         <ScrollToTop />
         <Routes>
           {/* Dashboard Layout */}

@@ -5,12 +5,86 @@ import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { MoreDotIcon } from "../../icons";
 
-export default function MonthlyTarget() {
-  const usedHours = 18;
-  const totalHours = 22;
-  const percentageUsed = (usedHours / totalHours) * 100;
+interface MonthlyTargetProps {
+  allottedHours?: {
+    average_hours_per_day: number;
+    remaining_hours_left: number;
+    used_hours_today: number;
+    total_allotted_time: string;
+  };
+  userType?: string;
+}
 
-  const series = [percentageUsed]; // ~81.82%
+export default function MonthlyTarget({ allottedHours, userType }: MonthlyTargetProps) {
+  const usedHours = allottedHours?.used_hours_today ?? 0;
+  const remainingHours = allottedHours?.remaining_hours_left ?? 20;
+  const totalHours = usedHours + remainingHours;
+  const percentageUsed = totalHours > 0 ? (usedHours / totalHours) * 100 : 0;
+
+  // If user is faculty, render different component
+  if (userType === 'faculty') {
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div className="px-5 pt-5 bg-white shadow-default rounded-2xl pb-11 dark:bg-gray-900 sm:px-6 sm:pt-6">
+          <div className="flex justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+                Faculty Dashboard
+              </h3>
+              <p className="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
+                Faculty access overview and system monitoring
+              </p>
+            </div>
+          </div>
+          
+          <div className="mt-8 space-y-6">
+            <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+              <div>
+                <h4 className="text-base font-semibold text-blue-900 dark:text-blue-100">
+                  Unlimited Access
+                </h4>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Faculty members have unrestricted system access
+                </p>
+              </div>
+              <div className="text-2xl text-blue-600 dark:text-blue-400">
+                ∞
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                <h5 className="text-sm font-medium text-green-900 dark:text-green-100 mb-2">
+                  Priority Access
+                </h5>
+                <p className="text-xs text-green-700 dark:text-green-300">
+                  Skip queues and reserve instantly
+                </p>
+              </div>
+              
+              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                <h5 className="text-sm font-medium text-purple-900 dark:text-purple-100 mb-2">
+                  Extended Sessions
+                </h5>
+                <p className="text-xs text-purple-700 dark:text-purple-300">
+                  No time limits on usage
+                </p>
+              </div>
+            </div>
+
+            <div className="text-center py-6">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Welcome back! You have full access to all laboratory resources.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Student view - existing allotted hours component
+  const series = [percentageUsed];
   const options: ApexOptions = {
     colors: ["#465FFF"],
     chart: {
@@ -42,7 +116,7 @@ export default function MonthlyTarget() {
             fontWeight: "600",
             offsetY: -40,
             color: "#1D2939",
-            formatter: function (val) {
+            formatter: function () {
               return `${usedHours} hrs / ${totalHours} hrs`;
             },
           },
@@ -115,11 +189,11 @@ export default function MonthlyTarget() {
           </div>
 
           <span className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-[95%] rounded-full bg-error-50 px-3 py-1 text-xs font-medium text-error-600 dark:bg-error-500/15 dark:text-error-500">
-            - 4 hrs today
+            - {usedHours} hrs today
           </span>
         </div>
         <p className="mx-auto mt-10 w-full max-w-[380px] text-center text-sm text-gray-500 sm:text-base">
-          You used 4 hrs today, it's higher than yesterday. Remember to balance study with rest.
+          You used {usedHours} hrs today{usedHours > 0 ? ", it's higher than yesterday. Remember to balance study with rest." : ". Start using your allocated hours for productive learning."}
         </p>
       </div>
 
@@ -129,7 +203,7 @@ export default function MonthlyTarget() {
             Average
           </p>
           <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            3 hrs/day
+            {allottedHours?.average_hours_per_day ?? 0} hrs/day
           </p>
         </div>
 
@@ -140,7 +214,7 @@ export default function MonthlyTarget() {
             Remaining Hours
           </p>
           <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            18 hours
+            {remainingHours} hours
           </p>
         </div>
 
@@ -151,7 +225,7 @@ export default function MonthlyTarget() {
             Used Today
           </p>
           <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            4 hrs
+            {usedHours} hrs
           </p>
         </div>
       </div>

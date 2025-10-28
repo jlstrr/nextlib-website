@@ -1,10 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
-import { Link } from "react-router";
+import { useNavigate } from "react-router";
+import { logoutUser } from "../../api/users";
+import ConfirmModal from "../ui/modal/ConfirmModal";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState<{ id?: string; name?: string; email?: string; avatar?: string } | null>(null);
+  const navigate = useNavigate();
+  const [showConfirm, setShowConfirm] = useState(false);
 
   function toggleDropdown() {
     setIsOpen(!isOpen);
@@ -13,6 +18,31 @@ export default function UserDropdown() {
   function closeDropdown() {
     setIsOpen(false);
   }
+
+  useEffect(() => {
+    // Load user from localStorage on mount
+    try {
+      const raw = localStorage.getItem("user");
+      if (raw) {
+        setUser(JSON.parse(raw));
+      }
+    } catch (_) {
+      // ignore
+    }
+
+    // Listen for SPA updates when user logs in/out
+    const handler = (e: any) => {
+      try {
+        const u = e?.detail ?? JSON.parse(localStorage.getItem("user") || "null");
+        setUser(u);
+      } catch (_) {
+        setUser(null);
+      }
+    };
+
+    window.addEventListener("ire-user-updated", handler as EventListener);
+    return () => window.removeEventListener("ire-user-updated", handler as EventListener);
+  }, []);
   return (
     <div className="relative">
       <button
@@ -20,10 +50,10 @@ export default function UserDropdown() {
         className="flex items-center text-gray-700 dropdown-toggle dark:text-gray-400"
       >
         <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <img src="/images/user/ustp-jasaan-logo.png" alt="User" />
+          <img src={user?.avatar || "/images/user/ustp-jasaan-logo.png"} alt={user?.name || "User"} />
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">Zyrah Claire</span>
+        <span className="block mr-1 font-medium text-theme-sm">{user?.name || "Guest User"}</span>
         <svg
           className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
@@ -51,10 +81,10 @@ export default function UserDropdown() {
       >
         <div>
           <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-            Zyrah Claire
+            {user?.name || "Guest User"}
           </span>
           <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
-            zyrahclaire@gmail.com
+            {user?.email || ""}
           </span>
         </div>
 
@@ -135,8 +165,13 @@ export default function UserDropdown() {
             </DropdownItem>
           </li> */}
         </ul>
-        <Link
-          to="/"
+        <a
+          href="/"
+          onClick={(e) => {
+            e.preventDefault();
+            // Open the custom confirm modal
+            setShowConfirm(true);
+          }}
           className="flex items-center gap-3 px-3 py-2 mt-3 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
         >
           <svg
@@ -155,7 +190,42 @@ export default function UserDropdown() {
             />
           </svg>
           Sign out
-        </Link>
+        </a>
+        <ConfirmModal
+          isOpen={showConfirm}
+          title="Sign out"
+          message="Are you sure you want to sign out?"
+          confirmText="Sign out"
+          cancelText="Cancel"
+          onCancel={() => setShowConfirm(false)}
+          onConfirm={async () => {
+            // Close dropdown and modal
+            closeDropdown();
+            setShowConfirm(false);
+            try {
+              await logoutUser();
+            } catch (err) {
+              // eslint-disable-next-line no-console
+              console.error("Logout API failed:", err);
+            }
+
+            try {
+              localStorage.removeItem("token");
+              localStorage.removeItem("user");
+              localStorage.removeItem("isLoggedIn");
+            } catch (_) {
+              // ignore
+            }
+
+            try {
+              window.dispatchEvent(new CustomEvent("ire-user-updated", { detail: null }));
+            } catch (_) {
+              // ignore
+            }
+
+            navigate("/", { replace: true });
+          }}
+        />
       </Dropdown>
     </div>
   );

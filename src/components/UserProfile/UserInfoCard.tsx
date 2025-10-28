@@ -1,15 +1,86 @@
+import { useState } from "react";
 import { useModal } from "../../hooks/useModal";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
+import { User } from "../../types/user";
+import { formatTime } from "../../utils/timeFormat";
+import { updateUser, getLoggedInUser } from "../../api/users";
+import Skeleton from "../ui/skeleton/Skeleton";
 
-export default function UserInfoCard() {
+interface UserInfoCardProps {
+  user: User | null;
+  onUserUpdate?: (updatedUser: User) => void;
+}
+
+export default function UserInfoCard({ user, onUserUpdate }: UserInfoCardProps) {
   const { isOpen, openModal, closeModal } = useModal();
-  const handleSave = () => {
-    // Handle save logic here
-    console.log("Saving changes...");
-    closeModal();
+  const [formData, setFormData] = useState({
+    firstname: '',
+    middle_initial: '',
+    lastname: '',
+    email: ''
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleOpenModal = () => {
+    if (user) {
+      setFormData({
+        firstname: user.firstname || '',
+        middle_initial: user.middle_initial || '',
+        lastname: user.lastname || '',
+        email: user.email || ''
+      });
+      setError(null);
+    }
+    openModal();
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+    
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Only send the middle_initial if it's not empty
+      const updateData: any = {
+        firstname: formData.firstname,
+        lastname: formData.lastname,
+        email: formData.email
+      };
+      
+      if (formData.middle_initial.trim()) {
+        updateData.middle_initial = formData.middle_initial.trim();
+      }
+      
+      // Update the user
+      await updateUser(user.id, updateData);
+      
+      // Refetch the current logged-in user data to get the latest information
+      const response = await getLoggedInUser();
+      const updatedUserData = response.data || response;
+      
+      // Update the user data if callback is provided
+      if (onUserUpdate) {
+        onUserUpdate(updatedUserData);
+      }
+      
+      closeModal();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update user');
+    } finally {
+      setIsLoading(false);
+    }
   };
   return (
     <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
@@ -24,36 +95,124 @@ export default function UserInfoCard() {
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
                 First Name
               </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Zyrah
-              </p>
+              {user ? (
+                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                  {user.firstname}
+                </p>
+              ) : (
+                <Skeleton className="h-5 w-24" />
+              )}
             </div>
+
+            {user?.middle_initial && (
+              <div>
+                <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                  Middle Initial
+                </p>
+                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                  {user.middle_initial}
+                </p>
+              </div>
+            )}
+
+            {!user && (
+              <div>
+                <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                  Middle Initial
+                </p>
+                <Skeleton className="h-5 w-8" />
+              </div>
+            )}
 
             <div>
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
                 Last Name
               </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Claire
-              </p>
+              {user ? (
+                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                  {user.lastname}
+                </p>
+              ) : (
+                <Skeleton className="h-5 w-28" />
+              )}
             </div>
 
             <div>
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
                 Email address
               </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                zyrahclaire@gmail.com
-              </p>
+              {user ? (
+                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                  {user.email}
+                </p>
+              ) : (
+                <Skeleton className="h-5 w-48" />
+              )}
             </div>
 
             <div>
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Program
+                ID Number
               </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Bachelor of Science in Information Technology (BSIT)
+              {user ? (
+                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                  {user.id_number}
+                </p>
+              ) : (
+                <Skeleton className="h-5 w-32" />
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                Program Course
               </p>
+              {user ? (
+                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                  {user.program_course}
+                </p>
+              ) : (
+                <Skeleton className="h-5 w-56" />
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                User Type
+              </p>
+              {user ? (
+                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                  {user.user_type}
+                </p>
+              ) : (
+                <Skeleton className="h-5 w-20" />
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                Status
+              </p>
+              {user ? (
+                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                  {user.status}
+                </p>
+              ) : (
+                <Skeleton className="h-5 w-16" />
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                Remaining Time
+              </p>
+              {user ? (
+                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                  {formatTime(user.remaining_time)}
+                </p>
+              ) : (
+                <Skeleton className="h-5 w-24" />
+              )}
             </div>
 
             {/* <div>
@@ -68,7 +227,7 @@ export default function UserInfoCard() {
         </div>
 
         <button
-          onClick={openModal}
+          onClick={handleOpenModal}
           className="flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200 lg:inline-flex lg:w-auto"
         >
           <svg
@@ -99,8 +258,13 @@ export default function UserInfoCard() {
             <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
               Update your details to keep your profile up-to-date.
             </p>
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
           </div>
-          <form className="flex flex-col">
+          <form className="flex flex-col" onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
             <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
               <div className="mt-7">
                 <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
@@ -110,33 +274,50 @@ export default function UserInfoCard() {
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                   <div className="col-span-2 lg:col-span-1">
                     <Label>First Name</Label>
-                    <Input type="text" value="Zyrah" />
+                    <Input 
+                      type="text" 
+                      value={formData.firstname}
+                      onChange={(e) => handleInputChange('firstname', e.target.value)}
+                    />
+                  </div>
+
+                  <div className="col-span-2 lg:col-span-1">
+                    <Label>Middle Initial</Label>
+                    <Input 
+                      type="text" 
+                      value={formData.middle_initial}
+                      onChange={(e) => handleInputChange('middle_initial', e.target.value)}
+                      placeholder="Optional"
+                    />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Last Name</Label>
-                    <Input type="text" value="Claire" />
+                    <Input 
+                      type="text" 
+                      value={formData.lastname}
+                      onChange={(e) => handleInputChange('lastname', e.target.value)}
+                    />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Email Address</Label>
-                    <Input type="text" value="zyrahclaire@gmail.com" />
-                  </div>
-
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Program</Label>
-                    <Input type="text" value="Bachelor of Science in Information Technology" />
+                    <Input 
+                      type="email" 
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                    />
                   </div>
 
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
-              <Button size="sm" variant="outline" onClick={closeModal}>
+              <Button size="sm" variant="outline" onClick={closeModal} disabled={isLoading}>
                 Close
               </Button>
-              <Button size="sm" onClick={handleSave}>
-                Save Changes
+              <Button size="sm" onClick={handleSave} disabled={isLoading}>
+                {isLoading ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>
           </form>

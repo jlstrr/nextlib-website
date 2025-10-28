@@ -5,7 +5,29 @@ import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { MoreDotIcon } from "../../icons";
 import { useState } from "react";
 
-export default function MonthlySalesChart() {
+interface MonthlySalesChartProps {
+  monthlyUsageData?: Array<{
+    month: string;
+    year: number;
+    monthNumber: number;
+    monthName: string;
+    totalHours: number;
+    totalMinutes: number;
+    sessionCount: number;
+  }>;
+}
+
+export default function MonthlySalesChart({ monthlyUsageData }: MonthlySalesChartProps) {
+  // Generate data for all 12 months, defaulting to 0 for months without data
+  const monthNames = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+  ];
+  
+  const chartData = monthNames.map((_, index) => {
+    const monthData = monthlyUsageData?.find(data => data.monthNumber === index + 1);
+    return monthData ? monthData.totalHours : 0;
+  });
   const options: ApexOptions = {
     colors: ["#465fff"],
     chart: {
@@ -33,20 +55,7 @@ export default function MonthlySalesChart() {
       colors: ["transparent"],
     },
     xaxis: {
-      categories: [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ],
+      categories: monthNames,
       axisBorder: {
         show: false,
       },
@@ -87,8 +96,8 @@ export default function MonthlySalesChart() {
   };
   const series = [
     {
-      name: "Usage",
-      data: [168, 385, 201, 298, 187, 195, 291, 110, 215, 390, 280, 112],
+      name: "Usage Hours",
+      data: chartData,
     },
   ];
   const [isOpen, setIsOpen] = useState(false);

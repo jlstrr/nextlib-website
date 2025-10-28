@@ -1,12 +1,16 @@
 import {
-  ArrowDownIcon,
-  ArrowUpIcon,
   BoxIconLine,
   GroupIcon,
 } from "../../icons";
-import Badge from "../ui/badge/Badge";
 
-export default function EcommerceMetrics() {
+interface EcommerceMetricsProps {
+  statistics?: {
+    reservations_made: number;
+    available_computers: number;
+  };
+}
+
+export default function EcommerceMetrics({ statistics }: EcommerceMetricsProps) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6">
       {/* <!-- Metric Item Start --> */}
@@ -21,7 +25,7 @@ export default function EcommerceMetrics() {
               No. of Reservations Made
             </span>
             <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              99
+              {statistics?.reservations_made ?? 0}
             </h4>
           </div>
           {/* <Badge color="success">
@@ -43,7 +47,7 @@ export default function EcommerceMetrics() {
               No. of Available Computers
             </span>
             <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              99
+              {statistics?.available_computers ?? 0}
             </h4>
           </div>
 
