@@ -315,7 +315,7 @@ export default function Reservation() {
   return (
     <div className="px-2 sm:px-0">
       <PageMeta
-        title="My Reservations | iReserve System"
+        title="My Reservations | NextLib System"
         description="View your computer lab reservations."
       />
       <PageBreadcrumb pageTitle="My Reservation" />

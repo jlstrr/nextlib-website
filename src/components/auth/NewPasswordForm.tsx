@@ -111,7 +111,7 @@ export default function NewPasswordForm() {
 
             <div className="mt-8 sm:mt-8 flex justify-center">
               <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400">
-              © 2025 iReserve - USTP Jasaan. All rights reserved.
+              © 2025 NextLib - USTP Jasaan. All rights reserved.
               </p>
             </div>
           </div>

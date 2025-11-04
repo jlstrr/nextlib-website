@@ -6,8 +6,8 @@ export default function Verification() {
   return (
     <>
       <PageMeta
-        title="Verification | iReserve System"
-        description="This is the verification page for iReserve System, where users can verify their accounts after registration or password reset."
+        title="Verification | NextLib System"
+        description="This is the verification page for NextLib System, where users can verify their accounts after registration or password reset."
       />
       <AuthLayout>
         <VerificationForm />

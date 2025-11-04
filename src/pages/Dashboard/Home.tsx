@@ -60,8 +60,8 @@ export default function Home() {
     return (
       <>
         <PageMeta
-          title="iReserve System"
-          description="This is the iReserve System Dashboard page for Student/Faculty."
+          title="NextLib System"
+          description="This is the NextLib System Dashboard page for Student/Faculty."
         />
         <div className="grid grid-cols-12 gap-4 md:gap-6">
           <div className="col-span-12 space-y-6 xl:col-span-7">
@@ -148,8 +148,8 @@ export default function Home() {
     return (
       <>
         <PageMeta
-          title="iReserve System"
-          description="This is the iReserve System Dashboard page for Student/Faculty."
+          title="NextLib System"
+          description="This is the NextLib System Dashboard page for Student/Faculty."
         />
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-red-500">Error: {error}</div>
@@ -160,8 +160,8 @@ export default function Home() {
   return (
     <>
       <PageMeta
-        title="iReserve System"
-        description="This is the iReserve System Dashboard page for Student/Faculty."
+        title="NextLib System"
+        description="This is the NextLib System Dashboard page for Student/Faculty."
       />
       <div className="grid grid-cols-12 gap-4 md:gap-6">
         <div className="col-span-12 space-y-6 xl:col-span-7">

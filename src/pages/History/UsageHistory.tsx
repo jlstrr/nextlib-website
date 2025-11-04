@@ -189,7 +189,7 @@ export default function UsageHistoryPage() {
   return (
     <div>
       <PageMeta
-        title="Usage History | iReserve System"
+        title="Usage History | NextLib System"
         description="View PC usage history"
       />
       <PageBreadcrumb pageTitle="Usage History" />

@@ -1545,7 +1545,7 @@ export default function CreateReservation() {
 
   return (
     <div>
-      <PageMeta title="Create Reservation | iReserve System" description="Create a new PC reservation" />
+      <PageMeta title="Create Reservation | NextLib System" description="Create a new PC reservation" />
       <PageBreadcrumb pageTitle="Create Reservation" />
 
       {/* Check if outside operating hours and show notice */}

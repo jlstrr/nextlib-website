@@ -6,8 +6,8 @@ export default function SignIn() {
   return (
     <>
       <PageMeta
-        title="Login | iReserve System"
-        description="This is the login page for iReserve System, where users can securely sign in to access their reservations and account settings."
+        title="Login | NextLib System"
+        description="This is the login page for NextLib System, where users can securely sign in to access their reservations and account settings."
       />
       <AuthLayout>
         <SignInForm />
