@@ -64,3 +64,18 @@ export async function deleteReservation(reservationId: string) {
     }
     return response.json();
 }
+
+export async function checkConflictingReservations(reservationType: string, reservationDate: string, start_time: string, end_time: string, duration: number) {
+    const response = await fetch(`${api_endpoint}/reservations/check-conflicts`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ reservation_type: reservationType, reservation_date: reservationDate, start_time, end_time, duration }),
+    });
+    if (!response.ok) {
+        throw new Error('Failed to check for conflicting reservations');
+    }
+    return response.json();
+}

@@ -10,3 +10,14 @@ export async function getLaboratories() {
     }
     return response.json();
 }
+    
+export async function getLaboratoryAvailability(laboratoryId: string, date: string, duration: number) {
+    const response = await fetch(`${api_endpoint}/laboratories/availability/${laboratoryId}?date=${date}&duration=${duration}`, {
+        method: 'GET',
+        credentials: 'include',
+    });
+    if (!response.ok) {
+        throw new Error('Failed to fetch laboratory availability');
+    }
+    return response.json();
+}

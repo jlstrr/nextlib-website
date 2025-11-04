@@ -120,6 +120,40 @@ export function getNextOpeningTime(
 }
 
 /**
+ * Convert military time (24-hour format) to standard time (12-hour format with AM/PM)
+ */
+export function formatMilitaryTimeToStandard(militaryTime: string): string {
+  if (!militaryTime || typeof militaryTime !== 'string') {
+    return militaryTime;
+  }
+
+  // Handle both "HH:MM" and "HH:MM:SS" formats
+  const timeParts = militaryTime.split(':');
+  if (timeParts.length < 2) {
+    return militaryTime; // Return original if invalid format
+  }
+
+  const hours = parseInt(timeParts[0], 10);
+  const minutes = timeParts[1];
+
+  if (isNaN(hours) || hours < 0 || hours > 23) {
+    return militaryTime; // Return original if invalid hours
+  }
+
+  let standardHours = hours;
+  const period = hours >= 12 ? 'PM' : 'AM';
+
+  // Convert to 12-hour format
+  if (hours === 0) {
+    standardHours = 12; // Midnight case
+  } else if (hours > 12) {
+    standardHours = hours - 12;
+  }
+
+  return `${standardHours}:${minutes} ${period}`;
+}
+
+/**
  * Create a real-time clock hook effect
  */
 export function createClockEffect(

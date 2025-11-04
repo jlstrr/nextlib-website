@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import { FaEllipsisV, FaCheckCircle, FaClock, FaTimesCircle, FaHourglassHalf, FaExclamationTriangle, FaTh, FaBars, FaCalendarAlt, FaStopwatch, FaDesktop, FaSpinner } from "react-icons/fa";
+import { FaEllipsisV, FaCheckCircle, FaClock, FaTimesCircle, FaHourglassHalf, FaExclamationTriangle, FaTh, FaBars, FaCalendarAlt, FaStopwatch, FaDesktop, FaSpinner, FaBuilding, FaLaptop } from "react-icons/fa";
 import { getMyReservations, cancelReservation, deleteReservation } from "../../api/reservations";
+import { formatMilitaryTimeToStandard } from "../../utils/timeUtils";
 
 const getStatusConfig = (status: string) => {
   const configs: { [key: string]: { bg: string; text: string; border: string; icon: React.ReactElement; pulse?: boolean } } = {
@@ -47,6 +48,38 @@ const getStatusConfig = (status: string) => {
   };
   
   return configs[status.toLowerCase()] || configs.pending;
+};
+
+// Function to get icon based on reservation type
+const getReservationIcon = (reservationType: string) => {
+  switch (reservationType?.toLowerCase()) {
+    case 'laboratory':
+    case 'lab':
+      return <FaBuilding className="w-5 h-5 text-blue-600 dark:text-blue-400 opacity-80" />;
+    case 'computer':
+    case 'pc':
+      return <FaDesktop className="w-5 h-5 text-blue-600 dark:text-blue-400 opacity-80" />;
+    case 'laptop':
+      return <FaLaptop className="w-5 h-5 text-blue-600 dark:text-blue-400 opacity-80" />;
+    default:
+      return <FaDesktop className="w-5 h-5 text-blue-600 dark:text-blue-400 opacity-80" />;
+  }
+};
+
+// Function to get larger icon for row view
+const getReservationIconLarge = (reservationType: string) => {
+  switch (reservationType?.toLowerCase()) {
+    case 'laboratory':
+    case 'lab':
+      return <FaBuilding className="w-8 h-8 text-blue-600 dark:text-blue-400 opacity-80" />;
+    case 'computer':
+    case 'pc':
+      return <FaDesktop className="w-8 h-8 text-blue-600 dark:text-blue-400 opacity-80" />;
+    case 'laptop':
+      return <FaLaptop className="w-8 h-8 text-blue-600 dark:text-blue-400 opacity-80" />;
+    default:
+      return <FaDesktop className="w-8 h-8 text-blue-600 dark:text-blue-400 opacity-80" />;
+  }
 };
 
 export default function Reservation() {
@@ -366,78 +399,90 @@ export default function Reservation() {
         </div>
       </div>
 
-      {/* Status Filter */}
-      <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex items-center gap-3">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Filter by Status:</label>
-          <div className="relative">
-            <select
-              value={selectedStatus}
-              onChange={(e) => handleStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 appearance-none pr-8"
-            >
-              <option value="all">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="active">Active</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="rejected">Rejected</option>
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+      {/* Status Filter and View Controls */}
+      <div className="mb-6 flex flex-col gap-4">
+        {/* Combined Filter and View Controls */}
+        <div className="flex flex-row lg:flex-row gap-3 items-end lg:items-center justify-between">
+          {/* Filter Controls */}
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              Filter by Status:
+            </label>
+            <div className="flex items-center gap-2">
+              <div className="relative min-w-[140px]">
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => handleStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 appearance-none pr-8"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="active">Active</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+              {selectedStatus !== 'all' && (
+                <button
+                  onClick={() => handleStatusFilter('all')}
+                  className="px-3 py-2 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 whitespace-nowrap flex-shrink-0"
+                >
+                  Clear Filter
+                </button>
+              )}
             </div>
           </div>
-          {selectedStatus !== 'all' && (
-            <button
-              onClick={() => handleStatusFilter('all')}
-              className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200"
-            >
-              Clear Filter
-            </button>
-          )}
-        </div>
-        
-        {/* Status Summary */}
-        <div className="flex items-center gap-4 text-xs">
-          {selectedStatus !== 'all' && !loading && (
-            <div className={`
-              px-2 py-1 rounded-full text-xs font-medium
-              ${getStatusConfig(selectedStatus).bg} ${getStatusConfig(selectedStatus).text} ${getStatusConfig(selectedStatus).border}
-            `}>
-              Filtering by {selectedStatus.toUpperCase()}
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            <span className="text-gray-500 dark:text-gray-400 text-xs font-medium">View:</span>
+          
+          {/* View Mode Controls */}
+          <div className="flex items-center gap-3">
+            <span className="text-gray-500 dark:text-gray-400 text-xs font-medium hidden md:inline">
+              View:
+            </span>
             <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
               <button
                 onClick={() => handleViewModeChange('rows')}
-                className={`px-3 py-1.5 text-xs font-medium transition-colors duration-200 flex items-center gap-1.5 ${
+                className={`px-3 py-2 text-xs font-medium transition-colors duration-200 flex items-center gap-1.5 ${
                   viewMode === 'rows'
                     ? 'bg-blue-600 text-white'
                     : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
                 <FaBars className="w-3 h-3" />
-                Rows
+                <span className="hidden sm:inline">Rows</span>
               </button>
               <button
                 onClick={() => handleViewModeChange('grid')}
-                className={`px-3 py-1.5 text-xs font-medium transition-colors duration-200 flex items-center gap-1.5 border-l border-gray-300 dark:border-gray-600 ${
+                className={`px-3 py-2 text-xs font-medium transition-colors duration-200 flex items-center gap-1.5 border-l border-gray-300 dark:border-gray-600 ${
                   viewMode === 'grid'
                     ? 'bg-blue-600 text-white'
                     : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
                 <FaTh className="w-3 h-3" />
-                Grid
+                <span className="hidden sm:inline">Grid</span>
               </button>
             </div>
           </div>
         </div>
+        
+        {/* Status Summary */}
+        {selectedStatus !== 'all' && !loading && (
+          <div className="flex items-center gap-2">
+            <div className={`
+              px-3 py-1.5 rounded-full text-xs font-medium border
+              ${getStatusConfig(selectedStatus).bg} ${getStatusConfig(selectedStatus).text} ${getStatusConfig(selectedStatus).border}
+            `}>
+              Filtering by {selectedStatus.toUpperCase()}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Reservation Cards */}
@@ -462,14 +507,17 @@ export default function Reservation() {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="rounded-lg p-2 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-50/[0.03] dark:to-blue-100/[0.06] border border-blue-200/50 dark:border-blue-800/50">
-                      <FaDesktop className="w-5 h-5 text-blue-600 dark:text-blue-400 opacity-80" />
+                      {getReservationIcon(res.reservation_type)}
                     </div>
                     <div>
-                      <h4 className="text-base font-semibold text-gray-800 dark:text-white/90">
-                        #{res.reservation_number || `N/A`}
-                      </h4>
+                        <h4 className="text-base font-semibold text-gray-800 dark:text-white/90">
+                        {res.reservation_type?.toLowerCase() === 'laboratory' || res.reservation_type?.toLowerCase() === 'lab' 
+                          ? (res.laboratory_id?.name || 'N/A')
+                          : (res.computer_id?.pc_number || 'N/A')
+                        }
+                        </h4>
                       {/* <p className="text-xs text-gray-500 dark:text-white/50">{res.laboratory_id?.name || 'General Lab'}</p> */}
-                      <p className="text-xs text-gray-400 dark:text-white/40 font-mono">ID: {res.id?.substring(0, 8) || 'N/A'}</p>
+                      <p className="text-xs text-gray-400 dark:text-white/40 font-mono">ID: {res.reservation_number || `N/A`}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -578,7 +626,7 @@ export default function Reservation() {
                   <div className="flex justify-between items-center">
                     <span className="font-medium text-gray-500 dark:text-white/60">Time:</span>
                     <span className="text-gray-800 dark:text-white/90 font-medium">
-                      {res.time_in && res.time_out ? `${res.time_in} - ${res.time_out}` : 'To be assigned'}
+                      {res.start_time && res.end_time ? `${formatMilitaryTimeToStandard(res.start_time)} - ${formatMilitaryTimeToStandard(res.end_time)}` : 'To be assigned'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -611,24 +659,95 @@ export default function Reservation() {
               >
                 <div className="flex items-start gap-4 w-full">
                   <div className="rounded-xl p-3 sm:p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-50/[0.03] dark:to-blue-100/[0.06] flex-shrink-0 border border-blue-200/50 dark:border-blue-800/50">
-                    <FaDesktop className="w-8 h-8 text-blue-600 dark:text-blue-400 opacity-80" />
+                    {getReservationIconLarge(res.reservation_type)}
                   </div>
                   <div className="flex-1">
-                    <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-1">
-                      #{res.reservation_number || 'N/A'}
-                    </h4>
-                    <div className="mb-3">
-                      <p className="text-sm text-gray-500 dark:text-white/50">
-                        <strong>Purpose:</strong> {res.purpose}
-                      </p>
-                      {res.notes && (
-                        <p className="text-xs text-gray-400 dark:text-white/40 mt-1">
-                          <strong>Notes:</strong> {res.notes}
-                        </p>
-                      )}
+                    <div className="flex flex-row justify-between mb-2">
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-1">
+                          {res.reservation_type?.toLowerCase() === 'laboratory' || res.reservation_type?.toLowerCase() === 'lab' 
+                            ? (res.laboratory_id?.name || 'N/A')
+                            : (res.computer_id?.pc_number || 'N/A')
+                          }
+                        </h4>
+                        <div className="mb-3">
+                          <p className="text-sm text-gray-500 dark:text-white/50">
+                            <strong>Purpose:</strong> {res.purpose}
+                          </p>
+                          {res.notes && (
+                            <p className="text-xs text-gray-400 dark:text-white/40 mt-1">
+                              <strong>Notes:</strong> {res.notes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {/* Status and Dropdown */}
+                      <div className="flex items-center justify-center gap-2 self-start sm:self-auto relative">
+                        {(() => {
+                          const statusConfig = getStatusConfig(res.status || "pending");
+                          return (
+                            <div className={`
+                              flex items-center gap-2 px-3 py-2 rounded-lg border
+                              ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}
+                              ${statusConfig.pulse ? 'animate-pulse' : ''}
+                              transition-all duration-200
+                            `}>
+                              <span className={statusConfig.pulse ? 'animate-pulse' : ''}>
+                                {statusConfig.icon}
+                              </span>
+                              <span className="text-xs font-semibold uppercase tracking-wide">
+                                {res.status || "Pending"}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                        <div className="relative">
+                          <FaEllipsisV
+                            className="text-gray-400 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200 dropdown-trigger"
+                            onClick={() =>
+                              setMenuOpenIndex(menuOpenIndex === idx ? null : idx)
+                            }
+                          />
+                          {menuOpenIndex === idx && (
+                            <div className="absolute right-0 mt-2 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-50 dark:bg-gray-800 dark:border-gray-700 overflow-hidden dropdown-menu">
+                              {res.status === "pending" && (
+                                <button
+                                  className="w-full text-left px-4 py-3 text-sm text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 flex items-center gap-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  onClick={() => handleCancel(idx)}
+                                  disabled={actionLoading[idx] === 'cancel' || actionLoading[idx] === 'delete'}
+                                >
+                                  {actionLoading[idx] === 'cancel' ? (
+                                    <FaSpinner className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <FaTimesCircle className="w-3 h-3" />
+                                  )}
+                                  {actionLoading[idx] === 'cancel' ? 'Cancelling...' : 'Cancel'}
+                                </button>
+                              )}
+                              {res.status !== "active" && res.status !== "approved" && (
+                                <button
+                                  className={`w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center gap-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                                    res.status === "pending" ? 'border-t border-gray-200 dark:border-gray-700' : ''
+                                  }`}
+                                  onClick={() => handleDelete(idx)}
+                                  disabled={actionLoading[idx] === 'cancel' || actionLoading[idx] === 'delete'}
+                                >
+                                  {actionLoading[idx] === 'delete' ? (
+                                    <FaSpinner className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <FaTimesCircle className="w-3 h-3" />
+                                  )}
+                                  {actionLoading[idx] === 'delete' ? 'Deleting...' : 'Delete'}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                      <div className="flex items-center gap-2 p-2 dark:bg-gray-800/30 rounded-md">
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-3 text-sm">
+                      <div className="flex items-center gap-2 dark:bg-gray-800/30 rounded-md">
                         <span className="font-medium text-gray-600 dark:text-white/70">Date:</span>
                         <div className="flex items-center gap-2">
                           <span className="text-gray-800 dark:text-white/90 font-medium">
@@ -656,30 +775,30 @@ export default function Reservation() {
                           })()}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 p-2 dark:bg-gray-800/30 rounded-md">
+                      <div className="flex items-center gap-2 dark:bg-gray-800/30 rounded-md">
                         <span className="font-medium text-gray-600 dark:text-white/70">Time:</span>
                         <span className="text-gray-800 dark:text-white/90 font-medium">
-                          {res.time_in && res.time_out ? `${res.time_in} - ${res.time_out}` : 'To be assigned'}
+                          {res.start_time && res.end_time ? `${formatMilitaryTimeToStandard(res.start_time)} - ${formatMilitaryTimeToStandard(res.end_time)}` : 'To be assigned'}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 p-2 dark:bg-gray-800/30 rounded-md">
+                      <div className="flex items-center gap-2 dark:bg-gray-800/30 rounded-md">
                         <span className="font-medium text-gray-600 dark:text-white/70">Duration:</span>
                         <span className="text-gray-800 dark:text-white/90 font-medium">{res.duration || "60"} min</span>
                       </div>
-                      <div className="flex items-center gap-2 p-2 dark:bg-gray-800/30 rounded-md">
+                      <div className="flex items-center gap-2 dark:bg-gray-800/30 rounded-md">
                         <span className="font-medium text-gray-600 dark:text-white/70">Reservation Type:</span>
                         <span className="text-gray-800 dark:text-white/90 font-medium capitalize">
                           {res.reservation_type || 'Computer'}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 p-2 dark:bg-gray-800/30 rounded-md">
+                      <div className="flex items-center gap-2 dark:bg-gray-800/30 rounded-md">
                         <span className="font-medium text-gray-600 dark:text-white/70">Created:</span>
                         <span className="text-gray-800 dark:text-white/90 font-medium text-xs">
                           {new Date(res.createdAt).toLocaleDateString()}
                         </span>
                       </div>
                       {(res.started_at || res.completed_at) && (
-                        <div className="flex items-center gap-2 p-2 dark:bg-gray-800/30 rounded-md">
+                        <div className="flex items-center gap-2 dark:bg-gray-800/30 rounded-md">
                           <span className="font-medium text-gray-600 dark:text-white/70">
                             {res.completed_at ? 'Completed:' : 'Started:'}
                           </span>
@@ -692,69 +811,7 @@ export default function Reservation() {
                   </div>
                 </div>
 
-                {/* Status and Dropdown */}
-                <div className="flex items-center justify-center gap-2 mt-4 sm:mt-0 self-end sm:self-auto relative">
-                  {(() => {
-                    const statusConfig = getStatusConfig(res.status || "pending");
-                    return (
-                      <div className={`
-                        flex items-center gap-2 px-3 py-2 rounded-lg border
-                        ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}
-                        ${statusConfig.pulse ? 'animate-pulse' : ''}
-                        transition-all duration-200
-                      `}>
-                        <span className={statusConfig.pulse ? 'animate-pulse' : ''}>
-                          {statusConfig.icon}
-                        </span>
-                        <span className="text-xs font-semibold uppercase tracking-wide">
-                          {res.status || "Pending"}
-                        </span>
-                      </div>
-                    );
-                  })()}
-                  <div className="relative">
-                    <FaEllipsisV
-                      className="text-gray-400 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200 dropdown-trigger"
-                      onClick={() =>
-                        setMenuOpenIndex(menuOpenIndex === idx ? null : idx)
-                      }
-                    />
-                    {menuOpenIndex === idx && (
-                      <div className="absolute right-0 mt-2 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-50 dark:bg-gray-800 dark:border-gray-700 overflow-hidden dropdown-menu">
-                        {res.status === "pending" && (
-                          <button
-                            className="w-full text-left px-4 py-3 text-sm text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 flex items-center gap-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                            onClick={() => handleCancel(idx)}
-                            disabled={actionLoading[idx] === 'cancel' || actionLoading[idx] === 'delete'}
-                          >
-                            {actionLoading[idx] === 'cancel' ? (
-                              <FaSpinner className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <FaTimesCircle className="w-3 h-3" />
-                            )}
-                            {actionLoading[idx] === 'cancel' ? 'Cancelling...' : 'Cancel'}
-                          </button>
-                        )}
-                        {res.status !== "active" && res.status !== "approved" && (
-                          <button
-                            className={`w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center gap-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
-                              res.status === "pending" ? 'border-t border-gray-200 dark:border-gray-700' : ''
-                            }`}
-                            onClick={() => handleDelete(idx)}
-                            disabled={actionLoading[idx] === 'cancel' || actionLoading[idx] === 'delete'}
-                          >
-                            {actionLoading[idx] === 'delete' ? (
-                              <FaSpinner className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <FaTimesCircle className="w-3 h-3" />
-                            )}
-                            {actionLoading[idx] === 'delete' ? 'Deleting...' : 'Delete'}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                
               </div>
             )
           ))
