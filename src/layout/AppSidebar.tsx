@@ -286,14 +286,14 @@ const AppSidebar: React.FC = () => {
             <>
               <img
                 className="dark:hidden"
-                src="/images/logo/iReserveLogo.svg"
+                src="/images/logo/iReserveLogo.png"
                 alt="Logo"
                 width={150}
                 height={40}
               />
               <img
                 className="hidden dark:block"
-                src="/images/logo/iReserveLogo-dark.svg"
+                src="/images/logo/iReserveLogo-dark.png"
                 alt="Logo"
                 width={150}
                 height={40}

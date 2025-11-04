@@ -63,12 +63,12 @@ const AppHeader: React.FC = () => {
           </button>          <Link to="/" className="lg:hidden">
             <img
               className="dark:hidden"
-              src="./images/logo/iReserveLogo.svg"
+              src="./images/logo/iReserveLogo.png"
               alt="Logo"
             />
             <img
               className="hidden dark:block"
-              src="./images/logo/iReserveLogo-dark.svg"
+              src="./images/logo/iReserveLogo-dark.png"
               alt="Logo"
             />
           </Link>
