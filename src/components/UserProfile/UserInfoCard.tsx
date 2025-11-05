@@ -16,6 +16,7 @@ interface UserInfoCardProps {
 
 export default function UserInfoCard({ user, onUserUpdate }: UserInfoCardProps) {
   const { isOpen, openModal, closeModal } = useModal();
+  
   const [formData, setFormData] = useState({
     firstname: '',
     middle_initial: '',
@@ -82,6 +83,8 @@ export default function UserInfoCard({ user, onUserUpdate }: UserInfoCardProps) 
       setIsLoading(false);
     }
   };
+
+  
   return (
     <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -182,38 +185,43 @@ export default function UserInfoCard({ user, onUserUpdate }: UserInfoCardProps) 
               </p>
               {user ? (
                 <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  {user.user_type}
+                  {user.user_type.toLocaleUpperCase()}
                 </p>
               ) : (
                 <Skeleton className="h-5 w-20" />
               )}
             </div>
 
-            <div>
+            {/* <div>
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
                 Status
               </p>
               {user ? (
                 <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  {user.status}
+                  {user.status.toLocaleUpperCase()}
                 </p>
               ) : (
                 <Skeleton className="h-5 w-16" />
               )}
-            </div>
+            </div> */}
 
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Remaining Time
-              </p>
-              {user ? (
+            {!user ? (
+              <div>
+                <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                  Remaining Time
+                </p>
+                <Skeleton className="h-5 w-24" />
+              </div>
+            ) : user.user_type?.toLowerCase() === 'faculty' ? null : (
+              <div>
+                <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                  Remaining Time
+                </p>
                 <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                   {formatTime(user.remaining_time)}
                 </p>
-              ) : (
-                <Skeleton className="h-5 w-24" />
-              )}
-            </div>
+              </div>
+            )}
 
             {/* <div>
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
@@ -323,6 +331,7 @@ export default function UserInfoCard({ user, onUserUpdate }: UserInfoCardProps) 
           </form>
         </div>
       </Modal>
+      
     </div>
   );
 }

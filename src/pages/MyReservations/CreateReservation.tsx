@@ -68,6 +68,7 @@ export default function CreateReservation() {
   const [reservationDate, setReservationDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [duration, setDuration] = useState("");
   const [customDuration, setCustomDuration] = useState("");
+  const [debouncedCustomDuration, setDebouncedCustomDuration] = useState("");
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
   const [purpose, setPurpose] = useState("");
   const [customPurpose, setCustomPurpose] = useState("");
@@ -280,8 +281,10 @@ export default function CreateReservation() {
       durationValid = duration !== "";
     }
     
-    // Check time slot selection
-    const timeSlotValid = selectedTimeSlot !== "";
+    // Check time slot selection - not required for all-day reservations, but all-day must be available
+    const timeSlotValid = duration === "all-day" ? 
+      (timeSlots.filter(slot => slot.selectable).length > 0 || selectedTimeSlot !== "") : 
+      selectedTimeSlot !== "";
     
     // For students, computer selection is required
     if (user?.user_type === 'student') {
@@ -304,7 +307,8 @@ export default function CreateReservation() {
       case 2: // Reservation Form
         // Basic validation for step 2
         const hasResourceSelection = user?.user_type === 'faculty' ? selectedLaboratory : selectedComputer;
-        const hasTimeDetails = reservationDate && selectedTimeSlot && 
+        const hasTimeDetails = reservationDate && 
+          (duration === "all-day" ? (timeSlots.filter(slot => slot.selectable).length > 0 || selectedTimeSlot) : selectedTimeSlot) && 
           (duration !== 'custom' ? duration : (customDuration && parseInt(customDuration) > 0));
         const hasPurpose = purpose && (purpose !== 'Other' || customPurpose.trim());
         return !!(hasResourceSelection && hasTimeDetails && hasPurpose);
@@ -338,8 +342,30 @@ export default function CreateReservation() {
   // Function to check for conflicting reservations
   const checkForConflicts = async () => {
     try {
-      const actualDuration = duration === "custom" ? parseInt(customDuration) : parseInt(duration);
       const reservationType = user?.user_type === 'faculty' ? 'laboratory' : 'computer';
+      
+      // Handle all-day reservations
+      if (duration === "all-day") {
+        const conflictCheckData = {
+          reservation_type: reservationType,
+          reservation_date: user?.user_type === 'student' ? new Date().toISOString().split('T')[0] : reservationDate,
+          start_time: "08:00", // All day starts at 8 AM
+          end_time: "17:00",   // All day ends at 5 PM
+          duration: 540        // 9 hours in minutes (8 AM to 5 PM)
+        };
+
+        const conflictResponse = await checkConflictingReservations(
+          conflictCheckData.reservation_type,
+          conflictCheckData.reservation_date,
+          conflictCheckData.start_time,
+          conflictCheckData.end_time,
+          conflictCheckData.duration
+        );
+
+        return conflictResponse;
+      }
+      
+      const actualDuration = duration === "custom" ? parseInt(debouncedCustomDuration) : parseInt(duration);
       
       // Calculate start and end times based on selected time slot and duration
       if (!selectedTimeSlot || !actualDuration) {
@@ -376,6 +402,16 @@ export default function CreateReservation() {
       return conflictResponse;
     } catch (error) {
       console.error("Error checking conflicts:", error);
+      
+      // Check for specific duration validation error
+      if (error instanceof Error && error.message.includes("Duration must be either 30, 60, 120, or 540 minutes")) {
+        showAlert(
+          "Invalid Duration", 
+          "The selected duration is not valid. Please choose from the available duration options: 30 minutes, 1 hour, 2 hours, or all-day (9 hours).",
+          "error"
+        );
+      }
+      
       throw error;
     }
   };
@@ -416,6 +452,7 @@ export default function CreateReservation() {
         { value: "30", display: "30 mins" },
         { value: "60", display: "60 mins" },
         { value: "120", display: "120 mins" },
+        { value: "all-day", display: "All Day" },
         { value: "custom", display: "Custom" }
       ];
     } else {
@@ -431,7 +468,7 @@ export default function CreateReservation() {
     if (!duration) return [];
     
     // Get actual duration in minutes
-    const durationInMinutes = duration === "custom" ? parseInt(customDuration) || 0 : parseInt(duration);
+    const durationInMinutes = duration === "all-day" ? 540 : duration === "custom" ? parseInt(debouncedCustomDuration) || 0 : parseInt(duration);
     
     if (durationInMinutes === 0) return [];
 
@@ -468,6 +505,18 @@ export default function CreateReservation() {
         }
       } catch (error) {
         console.error('Error fetching laboratory availability:', error);
+        
+        // Check for specific duration validation error
+        if (error instanceof Error && error.message.includes("Duration must be either 30, 60, 120, or 540 minutes")) {
+          showAlert(
+            "Invalid Duration", 
+            "The selected duration is not valid. Please choose from the available duration options: 30 minutes, 1 hour, 2 hours, or all-day (9 hours).",
+            "error"
+          );
+          setTimeSlots([]);
+          return [];
+        }
+        
         // Fallback to static generation on API error
         return getStaticTimeSlots(durationInMinutes);
       } finally {
@@ -511,6 +560,18 @@ export default function CreateReservation() {
         }
       } catch (error) {
         console.error('Error fetching computer availability:', error);
+        
+        // Check for specific duration validation error
+        if (error instanceof Error && error.message.includes("Duration must be either 30, 60, 120, or 540 minutes")) {
+          showAlert(
+            "Invalid Duration", 
+            "The selected duration is not valid. Please choose from the available duration options: 30 minutes, 1 hour, 2 hours, or all-day (9 hours).",
+            "error"
+          );
+          setTimeSlots([]);
+          return [];
+        }
+        
         // Fallback to static generation on API error
         return getStaticTimeSlots(durationInMinutes);
       } finally {
@@ -670,10 +731,11 @@ export default function CreateReservation() {
                   computer_id: user?.user_type === 'student' ? selectedComputer : null,
                   laboratory_id: user?.user_type === 'faculty' ? selectedLaboratory : null,
                   reservation_date: user?.user_type === 'student' ? new Date().toISOString() : reservationDate,
-                  time_slot: selectedTimeSlot,
-                  duration: parseInt(duration === 'custom' ? customDuration : duration),
+                  time_slot: duration === 'all-day' ? "08:00" : selectedTimeSlot,
+                  duration: duration === 'all-day' ? 540 : parseInt(duration === 'custom' ? debouncedCustomDuration : duration),
                   purpose: purpose === 'Other' ? customPurpose : purpose,
-                  notes: notes
+                  notes: notes,
+                  is_all_day: duration === 'all-day'
                 };
                 
                 console.log('Submitting reservation with data:', formData);
@@ -693,8 +755,8 @@ export default function CreateReservation() {
                     user_id: response.data?.user_id || null,
                     reservation_type: response.data?.reservation_type || formData.reservation_type,
                     date: response.data?.reservation_date || formData.reservation_date,
-                    timeSlot: response.data?.time_slot || formData.time_slot || "To be assigned",
-                    duration: response.data?.duration ? `${response.data.duration} mins` : `${formData.duration} mins`,
+                    timeSlot: duration === 'all-day' ? "All Day (8:00 AM - 5:00 PM)" : response.data?.time_slot || formData.time_slot || "To be assigned",
+                    duration: duration === 'all-day' ? "All Day (9 hours)" : response.data?.duration ? `${response.data.duration} mins` : `${formData.duration} mins`,
                     purpose: response.data?.purpose || formData.purpose,
                     notes: response.data?.notes || formData.notes,
                     status: response.data?.status || "pending",
@@ -727,8 +789,23 @@ export default function CreateReservation() {
               } catch (error) {
                 console.error('Error creating reservation:', error);
                 setShowConfirmDialog(false);
-                const errorMessage = error instanceof Error ? error.message : "An error occurred while creating the reservation. Please try again.";
-                showAlert("Error", errorMessage, "error");
+                
+                let errorMessage = "An error occurred while creating the reservation. Please try again.";
+                let errorTitle = "Error";
+                
+                if (error instanceof Error) {
+                  const message = error.message;
+                  
+                  // Check for specific duration validation error
+                  if (message.includes("Duration must be either 30, 60, 120, or 540 minutes")) {
+                    errorTitle = "Invalid Duration";
+                    errorMessage = "The selected duration is not valid. Please choose from the available duration options: 30 minutes, 1 hour, 2 hours, or all-day (9 hours).";
+                  } else {
+                    errorMessage = message;
+                  }
+                }
+                
+                showAlert(errorTitle, errorMessage, "error");
               } finally {
                 setSubmitting(false);
               }
@@ -826,7 +903,7 @@ export default function CreateReservation() {
                     <div className="text-sm text-gray-500 dark:text-gray-400">No computers found</div>
                   </div>
                 ) : (
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                  <div className="space-y-2">
                     {computers.map((computer) => {
                       const isAvailable = computer.status === "available";
                       const isSelected = selectedComputer === computer.id;
@@ -888,7 +965,7 @@ export default function CreateReservation() {
                     <div className="text-sm text-gray-500 dark:text-gray-400">No laboratories found</div>
                   </div>
                 ) : (
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                  <div className="space-y-2">
                     {laboratories.map((lab) => {
                       const computersInLab = computers.filter(c => c.laboratory_id.id === lab.id);
                       const availableInLab = computersInLab.filter(c => c.status === "available").length;
@@ -1038,6 +1115,24 @@ export default function CreateReservation() {
           })}
         </div>
 
+        {/* All Day Information */}
+        {duration === "all-day" && (
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex items-start gap-3">
+              <FaCalendarAlt className="w-5 h-5 text-blue-600 mt-0.5" />
+              <div>
+                <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">
+                  All Day Reservation
+                </h4>
+                <p className="text-sm text-blue-700 dark:text-blue-400">
+                  The laboratory will be reserved for the entire operating day (8:00 AM - 5:00 PM). 
+                  No specific time slot selection is required.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Custom Duration Input */}
         {duration === "custom" && (
           <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border">
@@ -1062,16 +1157,22 @@ export default function CreateReservation() {
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Maximum 8 hours (480 minutes)
             </p>
+            {customDuration !== debouncedCustomDuration && customDuration && (
+              <div className="flex items-center gap-2 mt-2 text-xs text-blue-600 dark:text-blue-400">
+                <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-600"></div>
+                <span>Checking availability...</span>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Time Slot Selection */}
-      {duration && (duration !== "custom" || (duration === "custom" && customDuration && parseInt(customDuration) > 0)) && (
+      {/* Time Slot Selection or All-Day Availability */}
+      {duration && (duration !== "custom" || (duration === "custom" && debouncedCustomDuration && parseInt(debouncedCustomDuration) > 0)) && (
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <FaClock className="w-5 h-5" />
-            Available Time Slots
+            {duration === "all-day" ? "All Day Availability" : "Available Time Slots"}
           </h3>
           
           {/* Real-time availability info for mobile */}
@@ -1099,12 +1200,83 @@ export default function CreateReservation() {
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2 mx-auto"></div>
                   <div className="text-sm text-gray-500 dark:text-gray-400">
-                    Loading available time slots...
+                    {duration === "all-day" ? "Checking all day availability..." : "Loading available time slots..."}
                   </div>
                 </div>
               );
             }
             
+            // Handle all-day availability display
+            if (duration === "all-day") {
+              const selectableSlots = timeSlots.filter(slot => slot.selectable);
+              const isAvailable = selectableSlots.length > 0;
+              
+              // Auto-select for all-day if available
+              if (isAvailable && !selectedTimeSlot) {
+                setSelectedTimeSlot("08:00"); // Set a default for all-day
+              }
+              
+              return (
+                <div className="space-y-4">
+                  <div className={`p-6 rounded-lg border-2 transition-all ${
+                    isAvailable
+                      ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                      : 'border-red-500 bg-red-50 dark:bg-red-900/20'
+                  }`}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                        isAvailable ? 'bg-green-500' : 'bg-red-500'
+                      }`}>
+                        <FaCheck className="w-3 h-3 text-white" />
+                      </div>
+                      <h4 className={`font-semibold ${
+                        isAvailable 
+                          ? 'text-green-800 dark:text-green-300' 
+                          : 'text-red-800 dark:text-red-300'
+                      }`}>
+                        All Day Reservation (8:00 AM - 5:00 PM)
+                      </h4>
+                    </div>
+                    
+                    <div className={`text-sm ${
+                      isAvailable 
+                        ? 'text-green-700 dark:text-green-400' 
+                        : 'text-red-700 dark:text-red-400'
+                    }`}>
+                      {isAvailable ? (
+                        <>
+                          <p className="mb-2">✅ Available for all-day reservation</p>
+                          <p className="text-xs">The laboratory is available for the entire operating day on {new Date(reservationDate).toLocaleDateString()}.</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="mb-2">❌ Not available for all-day reservation</p>
+                          <p className="text-xs">There are existing reservations that conflict with an all-day booking. Please try a different date or specific time slots.</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Show conflicting time slots if any */}
+                  {!isAvailable && timeSlots.length > 0 && (
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                      <h5 className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Existing reservations preventing all-day booking:
+                      </h5>
+                      <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                        {timeSlots.filter(slot => !slot.selectable && slot.status === 'occupied').map((slot: any) => (
+                          <div key={slot.value} className="px-2 py-1 bg-red-100 dark:bg-red-900/30 rounded text-xs text-red-700 dark:text-red-400">
+                            {slot.display}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            
+            // Handle regular time slot selection
             const selectableSlots = timeSlots.filter(slot => slot.selectable);
             
             if (timeSlots.length === 0) {
@@ -1310,6 +1482,7 @@ export default function CreateReservation() {
             <span className="text-gray-600 dark:text-gray-400">Time:</span>
             <span className="font-medium">
               {(() => {
+                if (duration === 'all-day') return 'All Day (8:00 AM - 5:00 PM)';
                 if (!selectedTimeSlot || !duration) return 'Not selected';
                 
                 const actualDuration = duration === 'custom' ? parseInt(customDuration) : parseInt(duration);
@@ -1337,7 +1510,7 @@ export default function CreateReservation() {
           <div className="flex justify-between">
             <span className="text-gray-600 dark:text-gray-400">Duration:</span>
             <span className="font-medium">
-              {duration === 'custom' ? `${customDuration} mins` : `${duration} mins`}
+              {duration === 'all-day' ? 'All Day (9 hours)' : duration === 'custom' ? `${customDuration} mins` : `${duration} mins`}
             </span>
           </div>
           
@@ -1529,10 +1702,19 @@ export default function CreateReservation() {
     return () => clearInterval(interval);
   }, [reservationsClosed]); // Include reservationsClosed in dependencies to avoid stale closure
 
+  // Debounce custom duration input to prevent excessive API calls
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      setDebouncedCustomDuration(customDuration);
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(debounceTimer);
+  }, [customDuration]);
+
   // Load time slots when dependencies change
   useEffect(() => {
     const loadTimeSlots = async () => {
-      if (duration && (duration !== "custom" || (duration === "custom" && customDuration))) {
+      if (duration && (duration !== "custom" || (duration === "custom" && debouncedCustomDuration))) {
         setSelectedTimeSlot(""); // Reset time slot when dependencies change
         await getAvailableTimeSlots();
       } else {
@@ -1541,7 +1723,7 @@ export default function CreateReservation() {
     };
 
     loadTimeSlots();
-  }, [selectedComputer, selectedLaboratory, reservationDate, duration, customDuration, user?.user_type]);
+  }, [selectedComputer, selectedLaboratory, reservationDate, duration, debouncedCustomDuration, user?.user_type]);
 
   return (
     <div>
@@ -1798,7 +1980,7 @@ export default function CreateReservation() {
                             <div className="text-sm text-gray-500 dark:text-gray-400">No laboratories found</div>
                           </div>
                         ) : (
-                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                          <div className="space-y-2">
                             {laboratories.map((lab) => {
                               const computersInLab = computers.filter(c => c.laboratory_id.id === lab.id);
                               const availableInLab = computersInLab.filter(c => c.status === "available").length;
@@ -2010,7 +2192,9 @@ export default function CreateReservation() {
                             }`}
                           >
                             <div className="flex flex-col items-center gap-1">
-                              {dur.value === "custom" ? (
+                              {dur.value === "all-day" ? (
+                                <FaCalendarAlt className="text-lg w-5 h-5" />
+                              ) : dur.value === "custom" ? (
                                 <FaEdit className="text-lg w-5 h-5" />
                               ) : (
                                 <FaStopwatch className="text-lg w-5 h-5" />
@@ -2021,6 +2205,24 @@ export default function CreateReservation() {
                         );
                       })}
                     </div>
+
+                    {/* All Day Information */}
+                    {duration === "all-day" && (
+                      <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-start gap-3">
+                          <FaCalendarAlt className="w-5 h-5 text-blue-600 mt-0.5" />
+                          <div>
+                            <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">
+                              All Day Reservation
+                            </h4>
+                            <p className="text-sm text-blue-700 dark:text-blue-400">
+                              The laboratory will be reserved for the entire operating day (8:00 AM - 5:00 PM). 
+                              No specific time slot selection is required.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Custom Duration Input */}
                     {duration === "custom" && (
@@ -2043,18 +2245,24 @@ export default function CreateReservation() {
                           className="w-full rounded-lg border-2 border-gray-300 dark:border-gray-600 px-4 py-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 transition-all duration-200 bg-white dark:bg-gray-800"
                         />
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          Minimum: 15 minutes, Maximum: 8 hours (480 minutes), Step: 15 minutes
+                          Minimum: 15 minutes, Maximum: 8 hours (480 minutes)
                         </p>
+                        {customDuration !== debouncedCustomDuration && customDuration && (
+                          <div className="flex items-center gap-2 mt-2 text-xs text-blue-600 dark:text-blue-400">
+                            <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-600"></div>
+                            <span>Checking availability...</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
 
-                  {/* Time Slot Selection */}
-                  {(duration && (duration !== "custom" || (duration === "custom" && customDuration))) && (
+                  {/* Time Slot Selection or All-Day Availability */}
+                  {(duration && (duration !== "custom" || (duration === "custom" && debouncedCustomDuration))) && (
                     <div className="mb-6">
                       <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                         <FaClock className="w-4 h-4" />
-                        Select Time Slot:
+                        {duration === "all-day" ? "All Day Availability:" : "Select Time Slot:"}
                       </label>
 
                       {/* Real-time availability info */}
@@ -2076,44 +2284,107 @@ export default function CreateReservation() {
                         </div>
                       )}
 
-                      {/* Time Slot Status Legend */}
-                      <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                            <span className="text-green-700 dark:text-green-400">Available</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                            <span className="text-red-700 dark:text-red-400">Occupied</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                            <span className="text-orange-700 dark:text-orange-400">In Use</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-gray-500"></div>
-                            <span className="text-gray-600 dark:text-gray-400">Past</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                            <span className="text-blue-700 dark:text-blue-400">Selected</span>
+                      {/* Time Slot Status Legend - hide for all-day */}
+                      {duration !== "all-day" && (
+                        <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                              <span className="text-green-700 dark:text-green-400">Available</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                              <span className="text-red-700 dark:text-red-400">Occupied</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                              <span className="text-orange-700 dark:text-orange-400">In Use</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full bg-gray-500"></div>
+                              <span className="text-gray-600 dark:text-gray-400">Past</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                              <span className="text-blue-700 dark:text-blue-400">Selected</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )}
                       
                       {(() => {
                         if (loadingTimeSlots) {
                           return (
-                            <div className="text-center py-8">
-                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2 mx-auto"></div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400">
-                                Loading available time slots...
+                            <div className="text-center py-6">
+                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mb-2 mx-auto"></div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                {duration === "all-day" ? "Checking all day availability..." : "Loading available time slots..."}
                               </div>
                             </div>
                           );
                         }
                         
+                        // Handle all-day availability display for mobile
+                        if (duration === "all-day") {
+                          const selectableSlots = timeSlots.filter(slot => slot.selectable);
+                          const isAvailable = selectableSlots.length > 0;
+                          
+                          // Auto-select for all-day if available
+                          if (isAvailable && !selectedTimeSlot) {
+                            setSelectedTimeSlot("08:00");
+                          }
+                          
+                          return (
+                            <div className="space-y-3">
+                              <div className={`p-4 rounded-lg border-2 transition-all ${
+                                isAvailable
+                                  ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                                  : 'border-red-500 bg-red-50 dark:bg-red-900/20'
+                              }`}>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                                    isAvailable ? 'bg-green-500' : 'bg-red-500'
+                                  }`}>
+                                    <FaCheck className="w-2 h-2 text-white" />
+                                  </div>
+                                  <h4 className={`text-sm font-semibold ${
+                                    isAvailable 
+                                      ? 'text-green-800 dark:text-green-300' 
+                                      : 'text-red-800 dark:text-red-300'
+                                  }`}>
+                                    All Day (8:00 AM - 5:00 PM)
+                                  </h4>
+                                </div>
+                                
+                                <div className={`text-xs ${
+                                  isAvailable 
+                                    ? 'text-green-700 dark:text-green-400' 
+                                    : 'text-red-700 dark:text-red-400'
+                                }`}>
+                                  {isAvailable ? (
+                                    <>✅ Available for all-day reservation</>
+                                  ) : (
+                                    <>❌ Not available for all-day reservation</>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* Show brief conflict info if any */}
+                              {!isAvailable && timeSlots.length > 0 && (
+                                <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 font-medium">
+                                    Existing reservations conflict with all-day booking
+                                  </p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                                    Try a different date or specific time slots
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        
+                        // Handle regular time slot display
                         if (timeSlots.length === 0) {
                           const selectedDate = new Date(reservationDate);
                           const today = new Date();
@@ -2340,7 +2611,9 @@ export default function CreateReservation() {
                     <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-600 last:border-b-0">
                       <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Duration:</span>
                       <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                        {duration === "custom" 
+                        {duration === "all-day" 
+                          ? "All Day (9 hours)"
+                          : duration === "custom" 
                           ? (customDuration ? `${customDuration} mins` : "Custom (not set)")
                           : duration 
                           ? `${duration} mins` 
@@ -2348,11 +2621,13 @@ export default function CreateReservation() {
                         }
                       </span>
                     </div>
-                    {selectedTimeSlot && (
+                    {(selectedTimeSlot || duration === "all-day") && (
                       <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-600 last:border-b-0">
                         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Time Slot:</span>
                         <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                           {(() => {
+                            if (duration === "all-day") return "All Day (8:00 AM - 5:00 PM)";
+                            
                             const actualDuration = duration === 'custom' ? parseInt(customDuration) : parseInt(duration);
                             if (!actualDuration) return selectedTimeSlot;
                             
@@ -2603,11 +2878,15 @@ export default function CreateReservation() {
                         }
 
                         // Step 3: Create the reservation
-                        const actualDuration = duration === "custom" ? parseInt(customDuration) : parseInt(duration);
+                        const actualDuration = duration === "all-day" ? 540 : duration === "custom" ? parseInt(debouncedCustomDuration) : parseInt(duration);
                         const actualPurpose = purpose === "Other" ? customPurpose : purpose;
                         
                         // Calculate start and end times based on selected time slot and duration
                         const getTimeSlotDetails = () => {
+                          if (duration === "all-day") {
+                            return { start_time: "08:00", end_time: "17:00" };
+                          }
+                          
                           if (!selectedTimeSlot || !actualDuration) return { start_time: null, end_time: null };
                           
                           // Parse the selected time slot (format: "HH:MM")
@@ -2637,6 +2916,7 @@ export default function CreateReservation() {
                           end_time: timeSlotDetails.end_time,
                           purpose: actualPurpose,
                           notes: notes,
+                          is_all_day: duration === "all-day"
                         };
 
                         // Add specific resource selection
@@ -2666,6 +2946,11 @@ export default function CreateReservation() {
                             reservation_type: response.data?.reservation_type || newReservation.reservation_type,
                             date: response.data?.reservation_date || newReservation.reservation_date,
                             timeSlot: (() => {
+                              // Handle all-day reservations
+                              if (duration === "all-day") {
+                                return "All Day (8:00 AM - 5:00 PM)";
+                              }
+                              
                               // Use start_time and end_time from response if available
                               if (response.data?.start_time && response.data?.end_time) {
                                 // Convert military time to 12-hour format for display
@@ -2694,7 +2979,7 @@ export default function CreateReservation() {
                               
                               return response.data?.time_slot || selectedTimeSlot || "To be assigned";
                             })(),
-                            duration: response.data?.duration ? `${response.data.duration} mins` : `${actualDuration} mins`,
+                            duration: duration === "all-day" ? "All Day (9 hours)" : response.data?.duration ? `${response.data.duration} mins` : `${actualDuration} mins`,
                             purpose: response.data?.purpose || actualPurpose,
                             notes: response.data?.notes || notes,
                             status: response.data?.status || "pending",
@@ -2727,8 +3012,23 @@ export default function CreateReservation() {
                       } catch (error) {
                         console.error("Error creating reservation:", error);
                         setShowConfirmDialog(false);
-                        const errorMessage = error instanceof Error ? error.message : "An error occurred while creating the reservation. Please try again.";
-                        showAlert("Error", errorMessage, "error");
+                        
+                        let errorMessage = "An error occurred while creating the reservation. Please try again.";
+                        let errorTitle = "Error";
+                        
+                        if (error instanceof Error) {
+                          const message = error.message;
+                          
+                          // Check for specific duration validation error
+                          if (message.includes("Duration must be either 30, 60, 120, or 540 minutes")) {
+                            errorTitle = "Invalid Duration";
+                            errorMessage = "The selected duration is not valid. Please choose from the available duration options: 30 minutes, 1 hour, 2 hours, or all-day (9 hours).";
+                          } else {
+                            errorMessage = message;
+                          }
+                        }
+                        
+                        showAlert(errorTitle, errorMessage, "error");
                       } finally {
                         setSubmitting(false);
                       }

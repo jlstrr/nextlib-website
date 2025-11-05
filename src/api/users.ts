@@ -76,3 +76,67 @@ export async function updateUser(id: string, userData: {
     }
     return response.json();
 }
+
+export async function changePassword(newPassword: string, confirmPassword: string) {
+    const response = await fetch(`${api_endpoint}/users/change-password`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ new_password: newPassword, confirm_password: confirmPassword }),
+    });
+    if (!response.ok) {
+        let errBody: any = null;
+        try {
+            errBody = await response.json();
+        } catch (e) {
+            // ignore JSON parse errors
+        }
+        const message = (errBody && (errBody.message || errBody.error)) || 'Failed to change password';
+        throw new Error(message);
+    }
+    return response.json();
+}
+
+export async function forgotPassword(email: string) {
+    const response = await fetch(`${api_endpoint}/auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+    });
+    if (!response.ok) {
+        let errBody: any = null;
+        try {
+            errBody = await response.json();
+        } catch (e) {
+            // ignore JSON parse errors
+        }
+        const message = (errBody && (errBody.message || errBody.error)) || 'Failed to initiate password reset';
+        throw new Error(message);
+    }
+    return response.json();
+}
+
+export async function resetPassword(token: string, newPassword: string, email: string) {
+    const response = await fetch(`${api_endpoint}/auth/reset-password`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token, password: newPassword, email }),
+    });
+    if (!response.ok) {
+        let errBody: any = null;
+        try {
+            errBody = await response.json();
+        } catch (e) {
+            // ignore JSON parse errors
+        }
+        const message = (errBody && (errBody.message || errBody.error)) || 'Failed to reset password';
+        throw new Error(message);
+    }
+    return response.json();
+}

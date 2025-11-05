@@ -75,7 +75,14 @@ export async function checkConflictingReservations(reservationType: string, rese
         body: JSON.stringify({ reservation_type: reservationType, reservation_date: reservationDate, start_time, end_time, duration }),
     });
     if (!response.ok) {
-        throw new Error('Failed to check for conflicting reservations');
+        let errBody: any = null;
+        try {
+            errBody = await response.json();
+        } catch (e) {
+            // ignore JSON parse errors
+        }
+        const message = (errBody && (errBody.message || errBody.error)) || response.statusText || 'Failed to check for conflicting reservations';
+        throw new Error(message);
     }
     return response.json();
 }

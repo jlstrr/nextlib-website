@@ -17,7 +17,14 @@ export async function getLaboratoryAvailability(laboratoryId: string, date: stri
         credentials: 'include',
     });
     if (!response.ok) {
-        throw new Error('Failed to fetch laboratory availability');
+        let errBody: any = null;
+        try {
+            errBody = await response.json();
+        } catch (e) {
+            // ignore JSON parse errors
+        }
+        const message = (errBody && (errBody.message || errBody.error)) || response.statusText || 'Failed to fetch laboratory availability';
+        throw new Error(message);
     }
     return response.json();
 }

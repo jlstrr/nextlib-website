@@ -17,7 +17,14 @@ export async function getComputerAvailability(computerId: string, date: string, 
         credentials: 'include',
     });
     if (!response.ok) {
-        throw new Error('Failed to fetch computer availability');
+        let errBody: any = null;
+        try {
+            errBody = await response.json();
+        } catch (e) {
+            // ignore JSON parse errors
+        }
+        const message = (errBody && (errBody.message || errBody.error)) || response.statusText || 'Failed to fetch computer availability';
+        throw new Error(message);
     }
     return response.json();
 }

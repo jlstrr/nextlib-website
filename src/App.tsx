@@ -107,7 +107,7 @@ export default function App() {
 
           <Route index path="/forgot-password" element={<ForgotPassword  />} />
           <Route index path="/verification" element={<Verification />} />
-          <Route index path="/new-password" element={<NewPassword />} />
+          <Route index path="/reset-password" element={<NewPassword />} />
 
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />
