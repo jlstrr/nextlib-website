@@ -6,9 +6,11 @@ import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
 import { loginUser } from "../../api/users";
+import { useAuth } from "../../context/AuthContext";
 
 export default function SignInForm() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
   const [idNumber, setIdNumber] = useState("");
@@ -43,51 +45,26 @@ export default function SignInForm() {
     try {
       const data = await loginUser(idNumber.trim(), password.trim());
 
-      // Expecting the API to return a token or similar on success.
-      // We'll try common fields: token, accessToken, or data.token
-      // const token = (data && (data.token || data.accessToken || data?.data?.token)) || null;
-      // const user = (data && (data.user || data?.data?.user)) || null;
+      // Parse token and user from API response
+      const token = data?.token || data?.accessToken || data?.data?.token;
+      const responseUser = data?.user || data?.data?.user || data?.userInfo;
 
-      // if (token) {
-      //   localStorage.setItem("token", token);
-      // }
-      // if (user) {
-      //   try {
-      //     localStorage.setItem("user", JSON.stringify(user));
-      //   } catch (_) {
-      //     // ignore JSON storage errors
-      //   }
-      // }
+      if (!token) {
+        throw new Error("No authentication token received");
+      }
 
-        // Parse common shapes from API response for token and user object.
-        const token = data?.token || data?.accessToken || data?.data?.token || null;
-        const responseUser = data?.user || data?.data?.user || data?.userInfo || null;
+      // Prepare user object for context
+      const userToStore = responseUser || { 
+        id: idNumber.trim(), 
+        email: responseUser?.email || "",
+        name: responseUser?.name || idNumber.trim(),
+        role: responseUser?.role || "user"
+      };
 
-        if (token) {
-          try {
-            localStorage.setItem("token", token);
-          } catch (_) {
-            // ignore storage errors
-          }
-        }
+      // Use auth context to log in (this will handle localStorage automatically)
+      login(userToStore, token);
 
-        // Prepare a user object to store. If the API didn't provide a user object,
-        // create a minimal one using the provided idNumber.
-        const userToStore = responseUser || { id: idNumber.trim(), name: idNumber.trim(), email: "" };
-        try {
-          localStorage.setItem("user", JSON.stringify(userToStore));
-        } catch (_) {
-          // ignore storage errors
-        }
-
-        // Notify any open components about the updated user (SPA internal event).
-        try {
-          window.dispatchEvent(new CustomEvent("ire-user-updated", { detail: userToStore }));
-        } catch (_) {
-          // ignore dispatch issues
-        }
-
-      // Persist only the ID number when "Keep me logged in" is checked
+      // Handle "Remember me" functionality
       if (isChecked) {
         try {
           localStorage.setItem("rememberedId", idNumber.trim());
@@ -98,8 +75,11 @@ export default function SignInForm() {
         localStorage.removeItem("rememberedId");
       }
 
+      // Set legacy flag for backward compatibility (if needed)
       localStorage.setItem("isLoggedIn", "true");
-      // Redirect to dashboard using router navigation (single-page navigation)
+
+      // Navigation will be handled automatically by the ProtectedRoute component
+      // But we can still navigate programmatically for better UX
       navigate("/dashboard", { replace: true });
     } catch (err: any) {
       // If the API throws a message, prefer that
@@ -147,7 +127,7 @@ export default function SignInForm() {
                 </Label>
                 <Input
                   type="number"
-                  placeholder="123456789"
+                  placeholder="Enter ID Number here"
                   value={idNumber}
                   onChange={(e) => setIdNumber(e.target.value)}
                 />
@@ -205,6 +185,23 @@ export default function SignInForm() {
                   disabled={loading}
                 >
                   {loading ? "Logging in..." : "Login"}
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-center my-4">
+                <div className="w-58 h-px bg-gray-300 dark:bg-gray-600"></div>
+                <span className="px-3 text-sm text-gray-500 dark:text-gray-400">or</span>
+                <div className="w-58 h-px bg-gray-300 dark:bg-gray-600"></div>
+              </div>
+
+              <div>
+                <Button
+                  variant="ghost"
+                  className="w-full rounded-2xl"
+                  size="sm"
+                  onClick={() => navigate('/guest')}
+                >
+                  Are you a guest?
                 </Button>
               </div>
             </div>

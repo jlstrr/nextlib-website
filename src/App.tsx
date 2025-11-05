@@ -3,7 +3,9 @@ import { useRef, useEffect } from "react";
 import LoadingBar from "react-top-loading-bar";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
+import Guest from "./pages/AuthPages/Guest";
 import NotFound from "./pages/OtherPage/NotFound";
+import Unauthorized from "./pages/OtherPage/Unauthorized";
 import UserProfiles from "./pages/UserProfiles";
 import Videos from "./pages/UiElements/Videos";
 import Images from "./pages/UiElements/Images";
@@ -32,6 +34,10 @@ import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
 
+// Import route protection middleware and auth context
+import { ProtectedRoute, PublicRoute } from "./middleware/RouteProtection";
+import { AuthProvider } from "./context/AuthContext";
+
 export default function App() {
   const loadingRef = useRef<any>(null);
 
@@ -56,18 +62,21 @@ export default function App() {
   }
 
   return (
-    <>
+    <AuthProvider>
       <LoadingBar color="#2563eb" height={3} ref={loadingRef} />
       <Router>
         <RouteChangeHandler />
         <ScrollToTop />
         <Routes>
-          {/* Dashboard Layout */}
-          <Route element={<AppLayout />}>
-          {/* Auth */}
-            <Route path="/" element={<Navigate to="/signin" replace />} />
-            
-            <Route index path="/dashboard" element={<Home />} />
+          {/* Protected Dashboard Layout - Requires Authentication */}
+          <Route 
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/dashboard" element={<Home />} />
 
             {/* My Reservations */}
             <Route path="/my-reservations" element={<Reservation />} />
@@ -101,18 +110,48 @@ export default function App() {
             <Route path="/bar-chart" element={<BarChart />} />
           </Route>
 
-          {/* Auth Layout */}
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
+          {/* Public Routes - Redirect authenticated users to dashboard */}
+          <Route path="/signin" element={
+            <PublicRoute redirectTo="/dashboard">
+              <SignIn />
+            </PublicRoute>
+          } />
+          <Route path="/signup" element={
+            <PublicRoute redirectTo="/dashboard">
+              <SignUp />
+            </PublicRoute>
+          } />
+          <Route path="/forgot-password" element={
+            <PublicRoute redirectTo="/dashboard">
+              <ForgotPassword />
+            </PublicRoute>
+          } />
+          <Route path="/verification" element={
+            <PublicRoute redirectTo="/dashboard">
+              <Verification />
+            </PublicRoute>
+          } />
+          <Route path="/reset-password" element={
+            <PublicRoute redirectTo="/dashboard">
+              <NewPassword />
+            </PublicRoute>
+          } />
+          <Route path="/guest" element={
+            <PublicRoute redirectTo="/dashboard">
+              <Guest />
+            </PublicRoute>
+          } />
 
-          <Route index path="/forgot-password" element={<ForgotPassword  />} />
-          <Route index path="/verification" element={<Verification />} />
-          <Route index path="/reset-password" element={<NewPassword />} />
+          {/* Default redirect */}
+          <Route path="/" element={<Navigate to="/signin" replace />} />
+
+          {/* Unauthorized page */}
+          <Route path="/unauthorized" element={<Unauthorized />} />
 
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>
-    </>
+    </AuthProvider>
   );
 }

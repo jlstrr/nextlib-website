@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { useNavigate } from "react-router";
 import { logoutUser } from "../../api/users";
 import ConfirmModal from "../ui/modal/ConfirmModal";
+import { useAuth } from "../../context/AuthContext";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const [user, setUser] = useState<{ id?: string; name?: string; email?: string; avatar?: string } | null>(null);
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -19,30 +20,6 @@ export default function UserDropdown() {
     setIsOpen(false);
   }
 
-  useEffect(() => {
-    // Load user from localStorage on mount
-    try {
-      const raw = localStorage.getItem("user");
-      if (raw) {
-        setUser(JSON.parse(raw));
-      }
-    } catch (_) {
-      // ignore
-    }
-
-    // Listen for SPA updates when user logs in/out
-    const handler = (e: any) => {
-      try {
-        const u = e?.detail ?? JSON.parse(localStorage.getItem("user") || "null");
-        setUser(u);
-      } catch (_) {
-        setUser(null);
-      }
-    };
-
-    window.addEventListener("ire-user-updated", handler as EventListener);
-    return () => window.removeEventListener("ire-user-updated", handler as EventListener);
-  }, []);
   return (
     <div className="relative">
       <button
@@ -50,7 +27,7 @@ export default function UserDropdown() {
         className="flex items-center text-gray-700 dropdown-toggle dark:text-gray-400"
       >
         <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <img src={user?.avatar || "/images/user/ustp-jasaan-logo.png"} alt={user?.name || "User"} />
+          <img src="/images/user/ustp-jasaan-logo.png" alt={user?.name || "User"} />
         </span>
 
         <span className="block mr-1 font-medium text-theme-sm">{user?.name || "Guest User"}</span>
@@ -202,28 +179,27 @@ export default function UserDropdown() {
             // Close dropdown and modal
             closeDropdown();
             setShowConfirm(false);
+            
             try {
+              // Call API logout if needed
               await logoutUser();
             } catch (err) {
               // eslint-disable-next-line no-console
               console.error("Logout API failed:", err);
             }
 
+            // Use auth context to handle logout (this will clear localStorage automatically)
+            logout();
+
+            // Clean up any legacy storage items
             try {
-              localStorage.removeItem("token");
-              localStorage.removeItem("user");
               localStorage.removeItem("isLoggedIn");
             } catch (_) {
               // ignore
             }
 
-            try {
-              window.dispatchEvent(new CustomEvent("ire-user-updated", { detail: null }));
-            } catch (_) {
-              // ignore
-            }
-
-            navigate("/", { replace: true });
+            // Navigate to login page
+            navigate("/signin", { replace: true });
           }}
         />
       </Dropdown>
