@@ -20,6 +20,26 @@ export default function UserDropdown() {
     setIsOpen(false);
   }
 
+  // Helper function to get display name
+  const getDisplayName = (user: any) => {
+    if (user?.firstname && user?.lastname) {
+      return `${user.firstname.trim()} ${user.lastname.trim()}`;
+    }
+    if (user?.firstname) {
+      return user.firstname.trim();
+    }
+    if (user?.lastname) {
+      return user.lastname.trim();
+    }
+    if (user?.email) {
+      return user.email;
+    }
+    if (user?.id_number) {
+      return user.id_number;
+    }
+    return "Guest User";
+  };
+
   return (
     <div className="relative">
       <button
@@ -27,10 +47,12 @@ export default function UserDropdown() {
         className="flex items-center text-gray-700 dropdown-toggle dark:text-gray-400"
       >
         <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <img src="/images/user/ustp-jasaan-logo.png" alt={user?.name || "User"} />
+          <img src="/images/user/ustp-jasaan-logo.png" alt={getDisplayName(user)} />
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">{user?.name || "Guest User"}</span>
+        <span className="block mr-1 font-medium text-theme-sm">
+          {getDisplayName(user)}
+        </span>
         <svg
           className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
@@ -58,7 +80,7 @@ export default function UserDropdown() {
       >
         <div>
           <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-            {user?.name || "Guest User"}
+            {getDisplayName(user)}
           </span>
           <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
             {user?.email || ""}

@@ -5,7 +5,7 @@ import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
-import { loginUser } from "../../api/users";
+import { loginUser, getLoggedInUser } from "../../api/users";
 import { useAuth } from "../../context/AuthContext";
 
 export default function SignInForm() {
@@ -53,16 +53,22 @@ export default function SignInForm() {
         throw new Error("No authentication token received");
       }
 
-      // Prepare user object for context
-      const userToStore = responseUser || { 
-        id: idNumber.trim(), 
-        email: responseUser?.email || "",
-        name: responseUser?.name || idNumber.trim(),
-        role: responseUser?.role || "user"
-      };
+      if (!responseUser) {
+        throw new Error("No user data received");
+      }
 
-      // Use auth context to log in (this will handle localStorage automatically)
-      login(userToStore, token);
+      // Fetch the complete user profile to get firstname, lastname, etc.
+      try {
+        const profileResponse = await getLoggedInUser();
+        const fullUserData = profileResponse.data || profileResponse;
+        
+        // Use the complete user data from the profile API
+        login(fullUserData, token);
+      } catch (profileError) {
+        console.warn('Failed to fetch full profile, using basic user data:', profileError);
+        // Fallback to the basic user data from login response
+        login(responseUser, token);
+      }
 
       // Handle "Remember me" functionality
       if (isChecked) {

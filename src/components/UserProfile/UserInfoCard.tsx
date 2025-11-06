@@ -8,6 +8,7 @@ import { User } from "../../types/user";
 import { formatTime } from "../../utils/timeFormat";
 import { updateUser, getLoggedInUser } from "../../api/users";
 import Skeleton from "../ui/skeleton/Skeleton";
+import { useAuth } from "../../context/AuthContext";
 
 interface UserInfoCardProps {
   user: User | null;
@@ -16,6 +17,7 @@ interface UserInfoCardProps {
 
 export default function UserInfoCard({ user, onUserUpdate }: UserInfoCardProps) {
   const { isOpen, openModal, closeModal } = useModal();
+  const { updateUser: updateAuthUser } = useAuth();
   
   const [formData, setFormData] = useState({
     firstname: '',
@@ -75,6 +77,9 @@ export default function UserInfoCard({ user, onUserUpdate }: UserInfoCardProps) 
       if (onUserUpdate) {
         onUserUpdate(updatedUserData);
       }
+      
+      // Update the AuthContext so the dropdown shows updated data
+      updateAuthUser(updatedUserData);
       
       closeModal();
     } catch (err) {
