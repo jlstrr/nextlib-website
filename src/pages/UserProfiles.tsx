@@ -81,8 +81,8 @@ export default function UserProfiles() {
           Profile
         </h3>
         <div className="space-y-6">
-          <UserMetaCard user={user} />
-          <UserInfoCard user={user} onUserUpdate={handleUserUpdate} />
+          <UserMetaCard user={user} onUserUpdate={handleUserUpdate} />
+          <UserInfoCard user={user} />
         </div>
       </div>
     </>
