@@ -733,21 +733,60 @@ export default function CreateReservation() {
                 }
 
                 // Step 3: Create the reservation
-                const formData = {
-                  reservation_type: user?.user_type === 'faculty' ? 'laboratory' : 'computer',
-                  computer_id: user?.user_type === 'student' ? selectedComputer : null,
-                  laboratory_id: user?.user_type === 'faculty' ? selectedLaboratory : null,
-                  reservation_date: user?.user_type === 'student' ? new Date().toISOString() : reservationDate,
-                  time_slot: duration === 'all-day' ? "08:00" : selectedTimeSlot,
-                  duration: duration === 'all-day' ? 540 : parseInt(duration === 'custom' ? debouncedCustomDuration : duration),
-                  purpose: purpose === 'Other' ? customPurpose : purpose,
-                  notes: notes,
-                  is_all_day: duration === 'all-day'
+                const actualDuration = duration === "all-day" ? 540 : duration === "custom" ? parseInt(debouncedCustomDuration) : parseInt(duration);
+                const actualPurpose = purpose === "Other" ? customPurpose : purpose;
+                
+                // Calculate start and end times based on selected time slot and duration
+                const getTimeSlotDetails = () => {
+                  if (duration === "all-day") {
+                    return { start_time: "08:00", end_time: "17:00" };
+                  }
+                  
+                  if (!selectedTimeSlot || !actualDuration) return { start_time: null, end_time: null };
+                  
+                  // Parse the selected time slot (format: "HH:MM")
+                  const [hours, minutes] = selectedTimeSlot.split(':').map(Number);
+                  
+                  // Create start time
+                  const startTime = new Date();
+                  startTime.setHours(hours, minutes, 0, 0);
+                  
+                  // Create end time by adding duration
+                  const endTime = new Date(startTime);
+                  endTime.setMinutes(endTime.getMinutes() + actualDuration);
+                  
+                  return {
+                    start_time: startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+                    end_time: endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+                  };
                 };
                 
-                console.log('Submitting reservation with data:', formData);
+                const timeSlotDetails = getTimeSlotDetails();
                 
-                const response = await createNewReservation(formData);
+                const newReservation: any = {
+                  reservation_date: user?.user_type === 'student' ? new Date().toISOString().split('T')[0] : reservationDate,
+                  reservation_type: user?.user_type === 'faculty' ? reservationType : "computer",
+                  duration: actualDuration,
+                  start_time: timeSlotDetails.start_time,
+                  end_time: timeSlotDetails.end_time,
+                  purpose: actualPurpose,
+                  notes: notes,
+                  is_all_day: duration === "all-day"
+                };
+
+                // Add specific resource selection
+                if (user?.user_type === 'student') {
+                  // Students must select a computer
+                  newReservation.computer_id = selectedComputer;
+                } else if (user?.user_type === 'faculty') {
+                  // Faculty can only select laboratories
+                  newReservation.laboratory_id = selectedLaboratory;
+                }
+                
+                
+                console.log('Submitting reservation with data:', newReservation);
+                
+                const response = await createNewReservation(newReservation);
                 
                 if (response.status === 201 || response.data) {
                   // Show success message
@@ -760,24 +799,24 @@ export default function CreateReservation() {
                     id: response.data?.id || Math.floor(100000 + Math.random() * 900000),
                     reservation_number: response.data?.reservation_number || `RES-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`,
                     user_id: response.data?.user_id || null,
-                    reservation_type: response.data?.reservation_type || formData.reservation_type,
-                    date: response.data?.reservation_date || formData.reservation_date,
-                    timeSlot: duration === 'all-day' ? "All Day (8:00 AM - 5:00 PM)" : response.data?.time_slot || formData.time_slot || "To be assigned",
-                    duration: duration === 'all-day' ? "All Day (9 hours)" : response.data?.duration ? `${response.data.duration} mins` : `${formData.duration} mins`,
-                    purpose: response.data?.purpose || formData.purpose,
-                    notes: response.data?.notes || formData.notes,
+                    reservation_type: response.data?.reservation_type || newReservation.reservation_type,
+                    date: response.data?.reservation_date || newReservation.reservation_date,
+                    timeSlot: duration === 'all-day' ? "All Day (8:00 AM - 5:00 PM)" : response.data?.time_slot || selectedTimeSlot || "To be assigned",
+                    duration: duration === 'all-day' ? "All Day (9 hours)" : response.data?.duration ? `${response.data.duration} mins` : `${newReservation.duration} mins`,
+                    purpose: response.data?.purpose || newReservation.purpose,
+                    notes: response.data?.notes || newReservation.notes,
                     status: response.data?.status || "pending",
                     createdAt: response.data?.createdAt || new Date().toISOString(),
                     updatedAt: response.data?.updatedAt || new Date().toISOString(),
                     // Add resource information
-                    computer_id: formData.computer_id || null,
-                    laboratory_id: formData.laboratory_id || null,
+                    computer_id: newReservation.computer_id || null,
+                    laboratory_id: newReservation.laboratory_id || null,
                     selectedResource: (() => {
-                      if (formData.computer_id) {
-                        const computer = computers.find(c => c.id === formData.computer_id);
+                      if (newReservation.computer_id) {
+                        const computer = computers.find(c => c.id === newReservation.computer_id);
                         return computer ? `Computer ${computer.pc_number} (${computer.laboratory_id.name})` : null;
-                      } else if (formData.laboratory_id) {
-                        const laboratory = laboratories.find(l => l.id === formData.laboratory_id);
+                      } else if (newReservation.laboratory_id) {
+                        const laboratory = laboratories.find(l => l.id === newReservation.laboratory_id);
                         return laboratory ? `Laboratory ${laboratory.name}` : null;
                       }
                       return "Any available computer";
@@ -3110,7 +3149,7 @@ export default function CreateReservation() {
                         const timeSlotDetails = getTimeSlotDetails();
                         
                         const newReservation: any = {
-                          reservation_date: user?.user_type === 'student' ? new Date().toISOString() : new Date(reservationDate).toISOString(),
+                          reservation_date: user?.user_type === 'student' ? new Date().toISOString().split('T')[0] : reservationDate,
                           reservation_type: user?.user_type === 'faculty' ? reservationType : "computer",
                           duration: actualDuration,
                           start_time: timeSlotDetails.start_time,
