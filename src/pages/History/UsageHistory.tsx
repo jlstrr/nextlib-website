@@ -15,6 +15,7 @@ import { getMyUsageHistory } from "../../api/usage-history";
 interface UsageHistory {
   reservation_id: {
     reservation_type: string;
+    reservation_number: string;
     status: string;
     id: string;
   };
@@ -166,7 +167,7 @@ export default function UsageHistoryPage() {
 
   const processedData = usageHistories.map((history) => ({
     date: formatDate(history.date),
-    reservationNo: history.reservation_id.id,
+    reservationNo: history.reservation_id.reservation_number,
     timeIn: formatTime(history.time_in),
     timeOut: formatTime(history.time_out),
     duration: formatDuration(history.calculated_duration),
@@ -243,7 +244,7 @@ export default function UsageHistoryPage() {
               <thead className="bg-gray-100 dark:bg-gray-800 text-xs uppercase text-gray-500 dark:text-gray-400">
                 <tr>
                   <th className="px-6 py-3">Date</th>
-                  <th className="px-6 py-3">Reservation ID</th>
+                  <th className="px-6 py-3">Reservation No.</th>
                   <th className="px-6 py-3">Time In</th>
                   <th className="px-6 py-3">Time Out</th>
                   <th className="px-6 py-3">Duration</th>

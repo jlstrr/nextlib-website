@@ -32,7 +32,7 @@ import { formatMilitaryTimeToStandard } from "../../utils/timeUtils";
 interface Computer {
   id: string;
   pc_number: string;
-  status: "available" | "occupied" | "maintenance";
+  status: "available" | "occupied" | "maintenance" | "locked";
   notes: string;
   laboratory_id: {
     id: string;
@@ -1965,6 +1965,19 @@ export default function CreateReservation() {
     loadTimeSlots();
   }, [selectedComputer, selectedLaboratory, reservationDate, duration, debouncedCustomDuration, user?.user_type]);
 
+  useEffect(() => {
+    if (!selectedLaboratory && laboratories.length > 0) {
+      // Find first lab that can be selected (active + has computers)
+      const firstSelectable = laboratories.find(lab => {
+        const computersInLab = computers.filter(c => c.laboratory_id.id === lab.id);
+        return lab.status === "active" && computersInLab.length > 0;
+      });
+
+      if (firstSelectable) {
+        setSelectedLaboratory(firstSelectable.id);
+      }
+    }
+  }, [laboratories, computers]);
   return (
     <div>
       <PageMeta title="Create Reservation | NextLib System" description="Create a new PC reservation" />
@@ -2091,7 +2104,7 @@ export default function CreateReservation() {
                         <div className="flex items-center justify-between mb-3">
                           <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
                             <FaDesktop className="w-4 h-4" />
-                                                  {user?.user_type === 'faculty' ? 'Select Computer' : 'Select Computer'}
+                            {user?.user_type === 'faculty' ? 'Select Computer' : 'Select Computer'}
                           </h5>
                           <div className="text-xs text-gray-500 dark:text-gray-400">
                             {computers.filter(c => c.status === "available").length} available
@@ -2114,11 +2127,11 @@ export default function CreateReservation() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                                  <span className="text-orange-700 dark:text-orange-400">In Use ({computers.filter(c => c.status === "occupied").length})</span>
+                                  <span className="text-orange-700 dark:text-orange-400">Maintenance ({computers.filter(c => c.status === "maintenance").length})</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                                  <span className="text-red-700 dark:text-red-400">Maintenance ({computers.filter(c => c.status === "maintenance").length})</span>
+                                  <span className="text-red-700 dark:text-red-400">Locked ({computers.filter(c => c.status === "locked").length})</span>
                                 </div>
                               </div>
                             </div>
@@ -2127,7 +2140,7 @@ export default function CreateReservation() {
                             <div className="max-h-64 overflow-y-auto">
                               <div className="grid grid-cols-2 gap-2">
                                 {computers.map((computer) => {
-                                  const isOccupied = computer.status === "occupied";
+                                  const isLocked = computer.status === "locked";
                                   const isMaintenance = computer.status === "maintenance";
                                   const isAvailable = computer.status === "available";
                                   const isSelected = selectedComputer === computer.id;
@@ -2144,10 +2157,10 @@ export default function CreateReservation() {
 
                                   const getStatusBadge = () => {
                                     if (isMaintenance) {
-                                      return <span className="px-1.5 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-full">Maintenance</span>;
+                                      return <span className="px-1.5 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded-full">Maintenance</span>;
                                     }
-                                    if (isOccupied) {
-                                      return <span className="px-1.5 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded-full">In Use</span>;
+                                    if (isLocked) {
+                                      return <span className="px-1.5 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-full">Locked</span>;
                                     }
                                     if (isSelected) {
                                       return <span className="px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-full flex items-center gap-1"><FaCheck className="w-2 h-2" />Selected</span>;
