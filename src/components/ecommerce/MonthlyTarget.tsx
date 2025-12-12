@@ -1,9 +1,30 @@
+
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 import { useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { MoreDotIcon } from "../../icons";
+
+// Helper to parse HH:MM:SS or H:MM:SS to decimal hours
+function parseTimeToHours(timeStr?: string): number {
+  if (!timeStr) return 0;
+  const [h = "0", m = "0", s = "0"] = timeStr.split(":");
+  return parseInt(h, 10) + parseInt(m, 10) / 60 + parseInt(s, 10) / 3600;
+}
+
+// Helper to format HH:MM:SS as 'X hrs Y mins'
+function formatTimeHrsMins(timeStr?: string): string {
+  if (!timeStr) return "0 hrs";
+  const [h = "0", m = "0"] = timeStr.split(":");
+  const hours = parseInt(h, 10);
+  const mins = parseInt(m, 10);
+  let result = "";
+  if (hours > 0) result += `${hours} hr${hours > 1 ? "s" : ""}`;
+  if (mins > 0) result += (result ? " " : "") + `${mins} min${mins > 1 ? "s" : ""}`;
+  if (!result) result = "0 hrs";
+  return result;
+}
 
 interface MonthlyTargetProps {
   allottedHours?: {
@@ -16,9 +37,12 @@ interface MonthlyTargetProps {
 }
 
 export default function MonthlyTarget({ allottedHours, userType }: MonthlyTargetProps) {
-  const usedHours = allottedHours?.used_hours_today ?? 0;
-  const remainingHours = allottedHours?.remaining_hours_left ?? 20;
-  const totalHours = usedHours + remainingHours;
+  // Parse used and total allotted hours from string (e.g., "15:02:00")
+  const usedToday = parseTimeToHours((allottedHours as any)?.used_time_today);
+  const usedHours = parseTimeToHours((allottedHours as any)?.used_hours_total);
+  const totalHours = parseTimeToHours((allottedHours as any)?.total_allotted_time) || 20;
+  const remainingHoursRaw = (allottedHours as any)?.remaining_hours_left;
+  const remainingHours = typeof remainingHoursRaw === "string" ? parseTimeToHours(remainingHoursRaw) : (remainingHoursRaw ?? 0);
   const percentageUsed = totalHours > 0 ? (usedHours / totalHours) * 100 : 0;
 
   // If user is faculty, render different component
@@ -117,7 +141,8 @@ export default function MonthlyTarget({ allottedHours, userType }: MonthlyTarget
             offsetY: -40,
             color: "#1D2939",
             formatter: function () {
-              return `${usedHours} hrs / ${totalHours} hrs`;
+              // Show as '15 hrs / 20 hrs' (rounded down)
+              return `${Math.floor(usedHours)} hrs / ${Math.floor(totalHours)} hrs`;
             },
           },
         },
@@ -154,7 +179,7 @@ export default function MonthlyTarget({ allottedHours, userType }: MonthlyTarget
               Usage hours assigned per student (reset every sem)
             </p>
           </div>
-          <div className="relative inline-block">
+          {/* <div className="relative inline-block">
             <button className="dropdown-toggle" onClick={toggleDropdown}>
               <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 size-6" />
             </button>
@@ -176,7 +201,7 @@ export default function MonthlyTarget({ allottedHours, userType }: MonthlyTarget
                 Delete
               </DropdownItem>
             </Dropdown>
-          </div>
+          </div> */}
         </div>
         <div className="relative ">
           <div className="max-h-[330px]" id="chartDarkStyle">
@@ -188,12 +213,21 @@ export default function MonthlyTarget({ allottedHours, userType }: MonthlyTarget
             />
           </div>
 
-          <span className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-[95%] rounded-full bg-error-50 px-3 py-1 text-xs font-medium text-error-600 dark:bg-error-500/15 dark:text-error-500">
-            - {usedHours} hrs today
+          <span
+            className={
+              `absolute left-1/2 top-full -translate-x-1/2 -translate-y-[95%] rounded-full px-3 py-1 text-xs font-medium ` +
+              (usedToday > 0
+                ? 'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500'
+                : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-300')
+            }
+          >
+            {usedToday > 0
+              ? `- ${formatTimeHrsMins((allottedHours as any)?.used_time_today)} today`
+              : `${formatTimeHrsMins((allottedHours as any)?.used_time_today)} today`}
           </span>
         </div>
         <p className="mx-auto mt-10 w-full max-w-[380px] text-center text-sm text-gray-500 sm:text-base">
-          You used {usedHours} hrs today{usedHours > 0 ? ", it's higher than yesterday. Remember to balance study with rest." : ". Start using your allocated hours for productive learning."}
+          You used {formatTimeHrsMins((allottedHours as any)?.used_time_today)} today{usedToday > 0 ? ", it's higher than yesterday. Remember to balance study with rest." : ". Start using your allocated hours for productive learning."}
         </p>
       </div>
 
@@ -203,7 +237,9 @@ export default function MonthlyTarget({ allottedHours, userType }: MonthlyTarget
             Average
           </p>
           <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            {allottedHours?.average_hours_per_day ?? 0} hrs/day
+            {typeof (allottedHours as any)?.average_hours_per_day === 'string'
+              ? `${formatTimeHrsMins((allottedHours as any)?.average_hours_per_day)} / day`
+              : `${allottedHours?.average_hours_per_day ?? 0} hrs/day`}
           </p>
         </div>
 
@@ -214,7 +250,7 @@ export default function MonthlyTarget({ allottedHours, userType }: MonthlyTarget
             Remaining Hours
           </p>
           <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            {remainingHours} hours
+            {formatTimeHrsMins((allottedHours as any)?.remaining_hours_left)}
           </p>
         </div>
 
@@ -225,7 +261,7 @@ export default function MonthlyTarget({ allottedHours, userType }: MonthlyTarget
             Used Today
           </p>
           <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            {usedHours} hrs
+            {formatTimeHrsMins((allottedHours as any)?.used_time_today)}
           </p>
         </div>
       </div>
