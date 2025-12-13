@@ -3,42 +3,42 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import Button from "../../components/ui/button/Button";
 import {
-  FiClock,
   FiCheckCircle,
-  FiActivity,
   FiCalendar,
   FiSettings,
   FiLoader,
+  FiXCircle,
+  FiAlertCircle,
 } from "react-icons/fi";
-import { getMyUsageHistory } from "../../api/usage-history";
+import { getReservationHistory } from "../../api/reservations";
 import DatePicker from "../../components/form/DatePicker";
 
-interface UsageHistory {
-  reservation_id: {
-    reservation_type: string;
-    reservation_number: string;
-    status: string;
-    id: string;
-  };
-  user_id: string;
-  date: string;
-  time_in: string;
-  time_out: string | null;
-  duration: number;
-  purpose: string;
+interface Laboratory {
+  name: string;
   status: string;
-  approved_by: {
-    _id: string;
-    firstname: string;
-    lastname: string;
-    username: string;
-  };
-  notes: string | null;
+  id: string;
+}
+
+interface Reservation {
+  reservation_number: string;
+  user_id: string;
+  reservation_type: string;
+  computer_id: string | null;
+  laboratory_id: Laboratory | null;
+  reservation_date: string;
+  start_time: string;
+  end_time: string;
+  purpose: string;
+  notes: string;
+  duration: number;
+  status: string;
+  approved_by: any | null;
+  started_at: string | null;
+  completed_at: string | null;
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
   id: string;
-  calculated_duration: number;
 }
 
 // Format date to readable string
@@ -52,13 +52,7 @@ function formatDate(dateString: string): string {
   });
 }
 
-// Format time to readable string
-function formatTime(timeString: string | null): string {
-  if (!timeString) return "--:--";
-  return timeString;
-}
-
-// Calculate duration in hours and minutes
+// Format duration
 function formatDuration(minutes: number): string {
   if (minutes === 0) return "--";
   const hours = Math.floor(minutes / 60);
@@ -69,38 +63,31 @@ function formatDuration(minutes: number): string {
   return `${mins}m`;
 }
 
-// Calculate statistics from usage history data
-function calculateStats(usageHistories: UsageHistory[]) {
+// Calculate statistics from reservation data
+function calculateStats(reservations: Reservation[]) {
   const thisMonth = new Date().getMonth();
   const thisYear = new Date().getFullYear();
   
-  const thisMonthHistory = usageHistories.filter(history => {
-    const historyDate = new Date(history.date);
-    return historyDate.getMonth() === thisMonth && historyDate.getFullYear() === thisYear;
+  const thisMonthReservations = reservations.filter(res => {
+    const resDate = new Date(res.reservation_date);
+    return resDate.getMonth() === thisMonth && resDate.getFullYear() === thisYear;
   });
 
-  const totalMinutes = thisMonthHistory.reduce((total, history) => total + history.calculated_duration, 0);
-  const totalHours = Math.floor(totalMinutes / 60);
-  const remainingMinutes = totalMinutes % 60;
-  
-  const completedSessions = thisMonthHistory.filter(history => history.status === 'completed').length;
-  const totalSessions = thisMonthHistory.length;
-  
-  // Calculate attendance rate (completed vs total sessions)
-  const attendanceRate = thisMonthHistory.length > 0 
-    ? Math.round((completedSessions / thisMonthHistory.length) * 100) 
-    : 0;
+  const totalReservations = thisMonthReservations.length;
+  const completedReservations = thisMonthReservations.filter(res => res.status === 'completed').length;
+  const cancelledReservations = thisMonthReservations.filter(res => res.status === 'cancelled').length;
+  const pendingReservations = thisMonthReservations.filter(res => res.status === 'pending').length;
 
   return {
-    totalUsageTime: totalHours > 0 ? `${totalHours}h ${remainingMinutes}m` : `${remainingMinutes}m`,
-    completedSessions,
-    totalSessions,
-    attendanceRate: `${attendanceRate}%`
+    totalReservations,
+    completedReservations,
+    cancelledReservations,
+    pendingReservations
   };
 }
 
-export default function UsageHistoryPage() {
-  const [usageHistories, setUsageHistories] = useState<UsageHistory[]>([]);
+export default function ReservationHistory() {
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -126,72 +113,73 @@ export default function UsageHistoryPage() {
   }, [isFilterOpen]);
 
   useEffect(() => {
-    const fetchUsageHistory = async () => {
+    const fetchReservations = async () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await getMyUsageHistory(currentPage, 10, dateFrom, dateTo);
+        const response = await getReservationHistory(currentPage, 10, undefined, dateFrom, dateTo);
         
         if (response.status === 200) {
-          setUsageHistories(response.data.usageHistories);
+          setReservations(response.data.reservations);
           setTotalPages(response.data.pagination.totalPages);
           setTotalItems(response.data.pagination.totalItems);
         } else {
-          setError('Failed to fetch usage history');
+          setError('Failed to fetch reservation history');
         }
       } catch (err) {
-        setError('Error fetching usage history');
-        console.error('Error fetching usage history:', err);
+        setError('Error fetching reservation history');
+        console.error('Error fetching reservation history:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUsageHistory();
+    fetchReservations();
   }, [currentPage, dateFrom, dateTo]);
 
-  const stats = usageHistories.length > 0 ? calculateStats(usageHistories) : {
-    totalUsageTime: "0h",
-    completedSessions: 0,
-    totalSessions: 0,
-    attendanceRate: "0%"
+  const stats = reservations.length > 0 ? calculateStats(reservations) : {
+    totalReservations: 0,
+    completedReservations: 0,
+    cancelledReservations: 0,
+    pendingReservations: 0
   };
 
   const statsCards = [
     {
-      label: "Total Usage Time",
-      value: stats.totalUsageTime,
+      label: "Total Reservations",
+      value: stats.totalReservations.toString(),
       badge: "This Month",
-      icon: <FiClock className="text-xl text-brand-500" />,
+      icon: <FiCalendar className="text-xl text-brand-500" />,
     },
     {
-      label: "Completed Sessions",
-      value: stats.completedSessions.toString(),
+      label: "Completed",
+      value: stats.completedReservations.toString(),
       badge: "This Month",
       icon: <FiCheckCircle className="text-xl text-green-500" />,
     },
     {
-      label: "Total Sessions",
-      value: stats.totalSessions.toString(),
+      label: "Cancelled",
+      value: stats.cancelledReservations.toString(),
       badge: "This Month",
-      icon: <FiActivity className="text-xl text-yellow-500" />,
+      icon: <FiXCircle className="text-xl text-red-500" />,
     },
     {
-      label: "Attendance Rate",
-      value: stats.attendanceRate,
+      label: "Pending",
+      value: stats.pendingReservations.toString(),
       badge: "This Month",
-      icon: <FiCalendar className="text-xl text-purple-500" />,
+      icon: <FiAlertCircle className="text-xl text-yellow-500" />,
     },
   ];
 
-  const processedData = usageHistories.map((history) => ({
-    date: formatDate(history.date),
-    reservationNo: history.reservation_id.reservation_number,
-    timeIn: formatTime(history.time_in),
-    timeOut: formatTime(history.time_out),
-    duration: formatDuration(history.calculated_duration),
-    purpose: history.purpose || "--",
-    status: history.status,
+  const processedData = reservations.map((res) => ({
+    date: formatDate(res.reservation_date),
+    reservationNo: res.reservation_number,
+    type: res.reservation_type,
+    location: res.laboratory_id ? res.laboratory_id.name : (res.computer_id || "--"),
+    time: `${res.start_time} - ${res.end_time}`,
+    duration: formatDuration(res.duration),
+    purpose: res.purpose || "--",
+    status: res.status,
   }));
 
   const handlePreviousPage = () => {
@@ -209,10 +197,10 @@ export default function UsageHistoryPage() {
   return (
     <div>
       <PageMeta
-        title="Usage History | NextLib System"
-        description="View PC usage history"
+        title="Reservation History | NextLib System"
+        description="View reservation history"
       />
-      <PageBreadcrumb pageTitle="Usage History" />
+      <PageBreadcrumb pageTitle="Reservation History" />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
@@ -237,11 +225,11 @@ export default function UsageHistoryPage() {
         ))}
       </div>
 
-      {/* Usage Table */}
+      {/* Reservation Table */}
       <div className="rounded-xl mt-4 border bg-white dark:bg-gray-900 dark:border-gray-700 mb-10">
         <div className="flex justify-between items-center px-6 py-4 border-b dark:border-gray-700">
           <h2 className="font-semibold text-lg text-gray-800 dark:text-white">
-            Usage History
+            Reservation History
           </h2>
           <div className="relative" ref={filterContainerRef}>
             <Button
@@ -312,7 +300,7 @@ export default function UsageHistoryPage() {
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <FiLoader className="animate-spin text-3xl text-blue-500" />
-            <span className="ml-3 text-gray-600 dark:text-gray-400">Loading usage history...</span>
+            <span className="ml-3 text-gray-600 dark:text-gray-400">Loading reservation history...</span>
           </div>
         ) : error ? (
           <div className="px-6 py-10 text-center text-red-600 dark:text-red-400">
@@ -325,8 +313,9 @@ export default function UsageHistoryPage() {
                 <tr>
                   <th className="px-6 py-3">Date</th>
                   <th className="px-6 py-3">Reservation No.</th>
-                  <th className="px-6 py-3">Time In</th>
-                  <th className="px-6 py-3">Time Out</th>
+                  <th className="px-6 py-3">Type</th>
+                  <th className="px-6 py-3">Location</th>
+                  <th className="px-6 py-3">Time</th>
                   <th className="px-6 py-3">Duration</th>
                   <th className="px-6 py-3">Purpose</th>
                   <th className="px-6 py-3">Status</th>
@@ -337,8 +326,9 @@ export default function UsageHistoryPage() {
                   <tr key={index} className="border-b dark:border-gray-700">
                     <td className="px-6 py-4 whitespace-nowrap">{entry.date}</td>
                     <td className="px-6 py-4">{entry.reservationNo}</td>
-                    <td className="px-6 py-4">{entry.timeIn}</td>
-                    <td className="px-6 py-4">{entry.timeOut}</td>
+                    <td className="px-6 py-4 capitalize">{entry.type}</td>
+                    <td className="px-6 py-4">{entry.location}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{entry.time}</td>
                     <td className="px-6 py-4">{entry.duration}</td>
                     <td className="px-6 py-4">{entry.purpose}</td>
                     <td className="px-6 py-4">
@@ -362,6 +352,11 @@ export default function UsageHistoryPage() {
                           Pending
                         </span>
                       )}
+                       {entry.status === "approved" && (
+                        <span className="text-indigo-600 bg-indigo-100 text-xs px-2 py-1 rounded-full">
+                          Approved
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -370,7 +365,7 @@ export default function UsageHistoryPage() {
           </div>
         ) : (
           <div className="px-6 py-10 text-center text-gray-600 dark:text-gray-400">
-            No usage history found.
+            No reservation history found.
           </div>
         )}
 
@@ -378,7 +373,7 @@ export default function UsageHistoryPage() {
         {!loading && !error && (
           <div className="flex justify-between items-center px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
             <p>
-              Showing {Math.min((currentPage - 1) * 10 + 1, totalItems)}–{Math.min(currentPage * 10, totalItems)} of {totalItems} sessions
+              Showing {Math.min((currentPage - 1) * 10 + 1, totalItems)}–{Math.min(currentPage * 10, totalItems)} of {totalItems} reservations
             </p>
             <div className="flex space-x-2">
               <Button 

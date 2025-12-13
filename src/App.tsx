@@ -23,6 +23,7 @@ import Blank from "./pages/Blank";
 import CreateReservation from "./pages/MyReservations/CreateReservation";
 import Reservation from "./pages/MyReservations/Reservation";
 import ReservationSummary from "./pages/MyReservations/ReservationSummary";
+import ReservationHistory from "./pages/History/ReservationHistory";
 
 import ForgotPassword from "./pages/AuthPages/ForgotPassword";
 import Verification from "./pages/AuthPages/Verification";
@@ -82,9 +83,10 @@ export default function App() {
             <Route path="/my-reservations" element={<Reservation />} />
             <Route path="/my-reservations/create" element={<CreateReservation />} />
             <Route path="/my-reservations/summary" element={<ReservationSummary />} />
-
+            
             {/* History */}
             <Route path="/usage-history" element={<UsageHistory />} />
+            <Route path="/reservation-history" element={<ReservationHistory />} />
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
