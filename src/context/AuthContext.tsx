@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types/user';
+import { getLoggedInUser } from '../api/users';
 
 interface AuthContextType {
   user: User | null;
@@ -22,22 +23,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Check for existing authentication on app load
   useEffect(() => {
-    const checkExistingAuth = () => {
+    const checkExistingAuth = async () => {
+      setIsLoading(true);
       try {
-        // Check both 'authToken' and 'token' for backward compatibility
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const userData = localStorage.getItem('user');
-
-        if (token && userData) {
-          const parsedUser = JSON.parse(userData);
-          setUser(parsedUser);
+        const profile = await getLoggedInUser();
+        const profileData = (profile && profile.data) ? profile.data : profile;
+        if (profileData) {
+          setUser(profileData as User);
+          return;
         }
-      } catch (error) {
-        console.error('Failed to parse stored user data:', error);
-        // Clear corrupted data
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        setUser(null);
+      } catch {
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
