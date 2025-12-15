@@ -14,7 +14,7 @@ export default function ReservationSummary() {
 
   // Operating hours constants
   const OPERATING_START_HOUR = 8; // 8 AM
-  const LAST_RESERVATION_HOUR = 16; // 4 PM (last hour to start a reservation)
+  const LAST_RESERVATION_HOUR = 17; // 5 PM (last hour to start a reservation)
 
   // Function to check if current time is within operating hours and days
   const isWithinOperatingHours = () => {
