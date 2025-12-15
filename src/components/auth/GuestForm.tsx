@@ -4,8 +4,10 @@ import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
 import Select from "../form/Select";
 import { checkIDNumberExists, logAttendance } from "../../api/attendance-log";
+import { useNavigate } from "react-router";
 
 export default function GuestForm() {
+  const navigate = useNavigate();
   const [userType, setUserType] = useState<"visitor" | "student" | "">("");
   const [currentStep, setCurrentStep] = useState(1); // For mobile wizard
   const [visitorFormData, setVisitorFormData] = useState({
@@ -403,6 +405,14 @@ export default function GuestForm() {
                     onClick={resetForm}
                   >
                     Register Another Guest
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full rounded-2xl"
+                    size="sm"
+                    onClick={() => navigate("/signin")}
+                  >
+                    Back to Login
                   </Button>
                 </div>
               </div>
