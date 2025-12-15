@@ -14,7 +14,7 @@ export default function ReservationSummary() {
 
   // Operating hours constants
   const OPERATING_START_HOUR = 8; // 8 AM
-  const LAST_RESERVATION_HOUR = 18; // 6 PM (last hour to start a reservation)
+  const LAST_RESERVATION_HOUR = 19; // 6 PM (last hour to start a reservation)
 
   // Function to check if current time is within operating hours and days
   const isWithinOperatingHours = () => {
@@ -191,7 +191,7 @@ export default function ReservationSummary() {
             
             <div className="text-xs text-gray-500 dark:text-gray-400">
               <div>Operating Hours:</div>
-              <div className="font-medium">Mon-Sat 8:00 AM - 6:00 PM</div>
+              <div className="font-medium">Mon-Sat 8:00 AM - 7:00 PM</div>
             </div>
           </div>
         </div>
