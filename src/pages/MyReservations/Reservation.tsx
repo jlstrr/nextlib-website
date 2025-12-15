@@ -225,9 +225,9 @@ export default function Reservation() {
         // Show notification about reservation closure
         if (timeCheck.reason === "too_late") {
           // Only show alert if user is actively viewing reservations
-          console.log("Reservation system has automatically closed for the day. Operating hours are 8:00 AM - 4:00 PM, Monday through Saturday.");
+          console.log("Reservation system has automatically closed for the day. Operating hours are 8:00 AM - 5:00 PM, Monday through Saturday.");
         } else if (timeCheck.reason === "sunday_closed") {
-          console.log("Reservation system is closed on Sundays. We operate Monday through Saturday from 8:00 AM to 4:00 PM.");
+          console.log("Reservation system is closed on Sundays. We operate Monday through Saturday from 8:00 AM to 5:00 PM.");
         }
       } else if (timeCheck.allowed && reservationsClosed) {
         // Reservations reopened (e.g., next day)
@@ -393,7 +393,7 @@ export default function Reservation() {
             
             <div className="text-xs text-gray-500 dark:text-gray-400">
               <div>Operating Hours:</div>
-              <div className="font-medium">Mon-Sat 8:00 AM - 4:00 PM</div>
+              <div className="font-medium">Mon-Sat 8:00 AM - 5:00 PM</div>
             </div>
           </div>
         </div>

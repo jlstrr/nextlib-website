@@ -224,10 +224,10 @@ export default function CreateReservation() {
                 <span className="font-medium text-red-800 dark:text-red-300">Operating Hours</span>
               </div>
               <p className="text-sm text-red-700 dark:text-red-400">
-                Monday - Saturday: 8:00 AM - 4:00 PM
+                Monday - Saturday: 8:00 AM - 5:00 PM
               </p>
               <p className="text-xs text-red-600 dark:text-red-500 mt-1">
-                (Closed Sundays • Last reservation accepted at 4:00 PM)
+                (Closed Sundays • Last reservation accepted at 5:00 PM)
               </p>
             </div>
 
@@ -3024,7 +3024,7 @@ export default function CreateReservation() {
                                 if (timeCheck.reason === "sunday_closed") {
                                   items.push(<li key="sunday">• We are closed on Sundays (Operating days: Monday - Saturday)</li>);
                                 } else {
-                                  items.push(<li key="hours">• Current time is outside operating hours (8:00 AM - 4:00 PM, Mon-Sat)</li>);
+                                  items.push(<li key="hours">• Current time is outside operating hours (8:00 AM - 5:00 PM, Mon-Sat)</li>);
                                 }
                               }
                               

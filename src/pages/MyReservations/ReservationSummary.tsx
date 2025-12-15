@@ -191,7 +191,7 @@ export default function ReservationSummary() {
             
             <div className="text-xs text-gray-500 dark:text-gray-400">
               <div>Operating Hours:</div>
-              <div className="font-medium">Mon-Sat 8:00 AM - 4:00 PM</div>
+              <div className="font-medium">Mon-Sat 8:00 AM - 5:00 PM</div>
             </div>
           </div>
         </div>
@@ -317,7 +317,7 @@ export default function ReservationSummary() {
             <ul className="list-disc pl-6 space-y-1">
               <li>Please arrive 5 minutes before your scheduled time</li>
               <li>Bring your student ID card for verification</li>
-              <li>Your reservation will be cancelled if you're 15 minutes late</li>
+              {/* <li>Your reservation will be cancelled if you're 15 minutes late</li> */}
             </ul>
           </div>
 
