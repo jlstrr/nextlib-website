@@ -107,7 +107,7 @@ export default function CreateReservation() {
 
   // Operating hours constants
   const OPERATING_START_HOUR = 8; // 8 AM
-  const LAST_RESERVATION_HOUR = 17; // 5 PM (last hour to start a reservation)
+  const LAST_RESERVATION_HOUR = 18; // 6 PM (last hour to start a reservation)
 
   // Function to check if a date is a Sunday
   const isSunday = (date: Date) => {
@@ -160,11 +160,11 @@ export default function CreateReservation() {
     
     if (!timeCheck.allowed) {
       if (timeCheck.reason === "sunday_closed") {
-        return "We are closed on Sundays. Please visit us Monday through Saturday from 8:00 AM to 4:00 PM.";
+        return "We are closed on Sundays. Please visit us Monday through Saturday from 8:00 AM to 6:00 PM.";
       } else if (timeCheck.reason === "too_early") {
         return "Reservations are available from 8:00 AM onwards. Please try again after 8:00 AM.";
       } else if (timeCheck.reason === "too_late") {
-        return "Last reservation time is 4:00 PM to ensure sessions end by 5:00 PM. Please try again tomorrow.";
+        return "Last reservation time is 4:00 PM to ensure sessions end by 6:00 PM. Please try again tomorrow.";
       }
     }
     
@@ -224,10 +224,10 @@ export default function CreateReservation() {
                 <span className="font-medium text-red-800 dark:text-red-300">Operating Hours</span>
               </div>
               <p className="text-sm text-red-700 dark:text-red-400">
-                Monday - Saturday: 8:00 AM - 5:00 PM
+                Monday - Saturday: 8:00 AM - 6:00 PM
               </p>
               <p className="text-xs text-red-600 dark:text-red-500 mt-1">
-                (Closed Sundays • Last reservation accepted at 5:00 PM)
+                (Closed Sundays • Last reservation accepted at 6:00 PM)
               </p>
             </div>
 
@@ -801,7 +801,7 @@ export default function CreateReservation() {
                     user_id: response.data?.user_id || null,
                     reservation_type: response.data?.reservation_type || newReservation.reservation_type,
                     date: response.data?.reservation_date || newReservation.reservation_date,
-                    timeSlot: duration === 'all-day' ? "All Day (8:00 AM - 5:00 PM)" : response.data?.time_slot || selectedTimeSlot || "To be assigned",
+                    timeSlot: duration === 'all-day' ? "All Day (8:00 AM - 6:00 PM)" : response.data?.time_slot || selectedTimeSlot || "To be assigned",
                     duration: duration === 'all-day' ? "All Day (9 hours)" : response.data?.duration ? `${response.data.duration} mins` : `${newReservation.duration} mins`,
                     purpose: response.data?.purpose || newReservation.purpose,
                     notes: response.data?.notes || newReservation.notes,
@@ -1365,7 +1365,7 @@ export default function CreateReservation() {
                   All Day Reservation
                 </h4>
                 <p className="text-sm text-blue-700 dark:text-blue-400">
-                  The laboratory will be reserved for the entire operating day (8:00 AM - 5:00 PM). 
+                  The laboratory will be reserved for the entire operating day (8:00 AM - 6:00 PM). 
                   No specific time slot selection is required.
                 </p>
               </div>
@@ -1474,7 +1474,7 @@ export default function CreateReservation() {
                           ? 'text-green-800 dark:text-green-300' 
                           : 'text-red-800 dark:text-red-300'
                       }`}>
-                        All Day Reservation (8:00 AM - 5:00 PM)
+                        All Day Reservation (8:00 AM - 6:00 PM)
                       </h4>
                     </div>
                     
@@ -1722,7 +1722,7 @@ export default function CreateReservation() {
             <span className="text-gray-600 dark:text-gray-400">Time:</span>
             <span className="font-medium">
               {(() => {
-                if (duration === 'all-day') return 'All Day (8:00 AM - 5:00 PM)';
+                if (duration === 'all-day') return 'All Day (8:00 AM - 6:00 PM)';
                 if (!selectedTimeSlot || !duration) return 'Not selected';
                 
                 const actualDuration = duration === 'custom' ? parseInt(customDuration) : parseInt(duration);
@@ -2469,7 +2469,7 @@ export default function CreateReservation() {
                               All Day Reservation
                             </h4>
                             <p className="text-sm text-blue-700 dark:text-blue-400">
-                              The laboratory will be reserved for the entire operating day (8:00 AM - 5:00 PM). 
+                              The laboratory will be reserved for the entire operating day (8:00 AM - 6:00 PM). 
                               No specific time slot selection is required.
                             </p>
                           </div>
@@ -2605,7 +2605,7 @@ export default function CreateReservation() {
                                       ? 'text-green-800 dark:text-green-300' 
                                       : 'text-red-800 dark:text-red-300'
                                   }`}>
-                                    All Day (8:00 AM - 5:00 PM)
+                                    All Day (8:00 AM - 6:00 PM)
                                   </h4>
                                 </div>
                                 
@@ -2807,7 +2807,7 @@ export default function CreateReservation() {
                   <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                     <p className="text-xs text-blue-800 dark:text-blue-300">
                       <span className="font-medium"><FaLightbulb className="inline w-3 h-3 mr-1" /> Operating Schedule:</span> 
-                      Monday - Saturday: 8:00 AM - 4:00 PM. All sessions must end by 5:00 PM. Closed Sundays.
+                      Monday - Saturday: 8:00 AM - 6:00 PM. All sessions must end by 6:00 PM. Closed Sundays.
                     </p>
                   </div>
                 </div>
@@ -2879,7 +2879,7 @@ export default function CreateReservation() {
                         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Time Slot:</span>
                         <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                           {(() => {
-                            if (duration === "all-day") return "All Day (8:00 AM - 5:00 PM)";
+                            if (duration === "all-day") return "All Day (8:00 AM - 6:00 PM)";
                             
                             const actualDuration = duration === 'custom' ? parseInt(customDuration) : parseInt(duration);
                             if (!actualDuration) return selectedTimeSlot;
@@ -3024,7 +3024,7 @@ export default function CreateReservation() {
                                 if (timeCheck.reason === "sunday_closed") {
                                   items.push(<li key="sunday">• We are closed on Sundays (Operating days: Monday - Saturday)</li>);
                                 } else {
-                                  items.push(<li key="hours">• Current time is outside operating hours (8:00 AM - 5:00 PM, Mon-Sat)</li>);
+                                  items.push(<li key="hours">• Current time is outside operating hours (8:00 AM - 6:00 PM, Mon-Sat)</li>);
                                 }
                               }
                               
@@ -3201,7 +3201,7 @@ export default function CreateReservation() {
                             timeSlot: (() => {
                               // Handle all-day reservations
                               if (duration === "all-day") {
-                                return "All Day (8:00 AM - 5:00 PM)";
+                                return "All Day (8:00 AM - 6:00 PM)";
                               }
                               
                               // Use start_time and end_time from response if available
