@@ -23,11 +23,12 @@ import DatePicker from "../../components/form/DatePicker";
 import { Modal } from "../../components/ui/modal";
 import { getAllComputers, getComputerAvailability } from "../../api/computers";
 import { getLaboratories, getLaboratoryAvailability } from "../../api/laboratories";
-import { createNewReservation, checkConflictingReservations } from "../../api/reservations";
+import { createNewReservation, checkConflictingReservations, getReservationHistory } from "../../api/reservations";
 import { getLoggedInUser } from "../../api/users";
 import { useNavigate } from "react-router";
 import { User } from "../../types/user";
 import { formatMilitaryTimeToStandard } from "../../utils/timeUtils";
+import { getSystemDefault } from "../../api/system-default";
 
 interface Computer {
   id: string;
@@ -93,6 +94,10 @@ export default function CreateReservation() {
   const [alertDialogTitle, setAlertDialogTitle] = useState("");
   const [alertDialogMessage, setAlertDialogMessage] = useState("");
   const [alertDialogType, setAlertDialogType] = useState<"error" | "warning" | "info">("info");
+  const [dailyLimitReached, setDailyLimitReached] = useState(false);
+  const [dailyLimitReservation, setDailyLimitReservation] = useState<any | null>(null);
+  const [checkingDailyLimit, setCheckingDailyLimit] = useState(false);
+  const [operationHours, setOperationHours] = useState("08:00 - 17:00");
 
   // Check if screen is mobile size
   useEffect(() => {
@@ -105,9 +110,45 @@ export default function CreateReservation() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Operating hours constants
-  const OPERATING_START_HOUR = 8; // 8 AM
-  const LAST_RESERVATION_HOUR = 19; // 7 PM (last hour to start a reservation)
+  const getOperationHoursInfo = () => {
+    const fallback = "08:00 - 17:00";
+    const value = (operationHours || fallback).trim();
+
+    const split = value.includes(" - ") ? value.split(" - ") : value.split("-");
+    const startRaw = (split[0] || "").trim();
+    const endRaw = (split[1] || "").trim();
+
+    const isTime = (t: string) => /^\d{2}:\d{2}$/.test(t);
+
+    const startTimeMilitary = isTime(startRaw) ? startRaw : fallback.split(" - ")[0];
+    const endTimeMilitary = isTime(endRaw) ? endRaw : fallback.split(" - ")[1];
+
+    const parseTime = (t: string) => {
+      const [h, m] = t.split(":").map(Number);
+      return {
+        hour: Number.isFinite(h) ? h : 8,
+        minute: Number.isFinite(m) ? m : 0
+      };
+    };
+
+    const start = parseTime(startTimeMilitary);
+    const end = parseTime(endTimeMilitary);
+
+    const startTotal = start.hour * 60 + start.minute;
+    const endTotal = end.hour * 60 + end.minute;
+    const durationMinutes = endTotal > startTotal ? endTotal - startTotal : 540;
+
+    return {
+      startTimeMilitary,
+      endTimeMilitary,
+      startHour: start.hour,
+      startMinute: start.minute,
+      endHour: end.hour,
+      endMinute: end.minute,
+      display: `${formatMilitaryTimeToStandard(startTimeMilitary)} - ${formatMilitaryTimeToStandard(endTimeMilitary)}`,
+      durationMinutes
+    };
+  };
 
   // Function to check if a date is a Sunday
   const isSunday = (date: Date) => {
@@ -133,7 +174,7 @@ export default function CreateReservation() {
 
   // Function to check if current time is within operating hours and days
   const isWithinOperatingHours = () => {
-    const currentHour = currentTime.getHours();
+    const { startHour, startMinute, endHour, endMinute } = getOperationHoursInfo();
     const currentDay = currentTime.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     
     // Check if it's Sunday (day 0)
@@ -141,13 +182,16 @@ export default function CreateReservation() {
       return { allowed: false, reason: "sunday_closed" };
     }
     
-    // Check if before 8 AM
-    if (currentHour < OPERATING_START_HOUR) {
+    const startTime = new Date(currentTime);
+    startTime.setHours(startHour, startMinute, 0, 0);
+    const endTime = new Date(currentTime);
+    endTime.setHours(endHour, endMinute, 0, 0);
+
+    if (currentTime < startTime) {
       return { allowed: false, reason: "too_early" };
     }
     
-    // Check if after 4 PM (last reservation time)
-    if (currentHour >= LAST_RESERVATION_HOUR) {
+    if (currentTime >= endTime) {
       return { allowed: false, reason: "too_late" };
     }
     
@@ -157,14 +201,17 @@ export default function CreateReservation() {
   // Function to get operating hours message
   const getOperatingHoursMessage = () => {
     const timeCheck = isWithinOperatingHours();
+    const { startTimeMilitary, endTimeMilitary, display } = getOperationHoursInfo();
+    const startStandard = formatMilitaryTimeToStandard(startTimeMilitary);
+    const endStandard = formatMilitaryTimeToStandard(endTimeMilitary);
     
     if (!timeCheck.allowed) {
       if (timeCheck.reason === "sunday_closed") {
-        return "We are closed on Sundays. Please visit us Monday through Saturday from 8:00 AM to 7:00 PM.";
+        return `We are closed on Sundays. Please visit us Monday through Saturday from ${display}.`;
       } else if (timeCheck.reason === "too_early") {
-        return "Reservations are available from 8:00 AM onwards. Please try again after 8:00 AM.";
+        return `Reservations are available from ${startStandard} onwards. Please try again after ${startStandard}.`;
       } else if (timeCheck.reason === "too_late") {
-        return "Last reservation time is 4:00 PM to ensure sessions end by 7:00 PM. Please try again tomorrow.";
+        return `Reservation hours have ended for today. Reservations are available until ${endStandard}. Please try again tomorrow.`;
       }
     }
     
@@ -174,6 +221,9 @@ export default function CreateReservation() {
   // Function to render the closed notice
   const renderClosedNotice = () => {
     const timeCheck = isWithinOperatingHours();
+    const { startTimeMilitary, endTimeMilitary, display } = getOperationHoursInfo();
+    const startStandard = formatMilitaryTimeToStandard(startTimeMilitary);
+    const endStandard = formatMilitaryTimeToStandard(endTimeMilitary);
     
     let title = "";
     let message = "";
@@ -181,24 +231,24 @@ export default function CreateReservation() {
     
     if (timeCheck.reason === "sunday_closed") {
       title = "Closed on Sundays";
-      message = "Our reservation system is closed on Sundays. We operate Monday through Saturday from 8:00 AM to 4:00 PM.";
-      comeBackMessage = "Please come back tomorrow (Monday) starting from 8:00 AM.";
+      message = `Our reservation system is closed on Sundays. We operate Monday through Saturday from ${display}.`;
+      comeBackMessage = `Please come back tomorrow (Monday) starting from ${startStandard}.`;
     } else if (timeCheck.reason === "too_early") {
       title = "Reservations Closed";
-      message = "We're currently closed. Reservations are available from 8:00 AM to 4:00 PM, Monday through Saturday.";
-      comeBackMessage = "Please come back after 8:00 AM to make your reservation.";
+      message = `We're currently closed. Reservations are available from ${display}, Monday through Saturday.`;
+      comeBackMessage = `Please come back after ${startStandard} to make your reservation.`;
     } else if (timeCheck.reason === "too_late") {
       title = "Reservations Closed";
-      message = "Reservation hours have ended for today. Reservations are available from 8:00 AM to 4:00 PM, Monday through Saturday.";
+      message = `Reservation hours have ended for today. Reservations are available from ${display}, Monday through Saturday.`;
       // Check if tomorrow is Sunday
       const tomorrow = new Date(currentTime);
       tomorrow.setDate(tomorrow.getDate() + 1);
       const tomorrowDay = tomorrow.getDay();
       
       if (tomorrowDay === 0) { // Tomorrow is Sunday
-        comeBackMessage = "Please come back on Monday starting from 8:00 AM.";
+        comeBackMessage = `Please come back on Monday starting from ${startStandard}.`;
       } else {
-        comeBackMessage = "Please come back tomorrow starting from 8:00 AM.";
+        comeBackMessage = `Please come back tomorrow starting from ${startStandard}.`;
       }
     }
 
@@ -224,10 +274,10 @@ export default function CreateReservation() {
                 <span className="font-medium text-red-800 dark:text-red-300">Operating Hours</span>
               </div>
               <p className="text-sm text-red-700 dark:text-red-400">
-                Monday - Saturday: 8:00 AM - 7:00 PM
+                Monday - Saturday: {display}
               </p>
               <p className="text-xs text-red-600 dark:text-red-500 mt-1">
-                (Closed Sundays • Last reservation accepted at 7:00 PM)
+                (Closed Sundays • Last reservation accepted at {endStandard})
               </p>
             </div>
 
@@ -262,6 +312,10 @@ export default function CreateReservation() {
   // Function to check if form is complete
   const isFormComplete = () => {
     const timeCheck = isWithinOperatingHours();
+
+    if (user?.user_type === 'student' && (checkingDailyLimit || dailyLimitReached)) {
+      return false;
+    }
     
     // Check purpose requirements (including custom purpose)
     let purposeValid = false;
@@ -301,6 +355,9 @@ export default function CreateReservation() {
 
   // Mobile wizard helper functions
   const canProceedToNextStep = () => {
+    if (user?.user_type === 'student' && (checkingDailyLimit || dailyLimitReached)) {
+      return false;
+    }
     switch (currentStep) {
       case 1: // Reservation Type Selection (and Resource Selection in Mobile)
         if (isMobile) {
@@ -353,12 +410,13 @@ export default function CreateReservation() {
       
       // Handle all-day reservations
       if (duration === "all-day") {
+        const { startTimeMilitary, endTimeMilitary, durationMinutes } = getOperationHoursInfo();
         const conflictCheckData = {
           reservation_type: reservationType,
           reservation_date: user?.user_type === 'student' ? new Date().toISOString().split('T')[0] : reservationDate,
-          start_time: "08:00", // All day starts at 8 AM
-          end_time: "17:00",   // All day ends at 5 PM
-          duration: 540        // 9 hours in minutes (8 AM to 5 PM)
+          start_time: startTimeMilitary,
+          end_time: endTimeMilitary,
+          duration: durationMinutes
         };
 
         const conflictResponse = await checkConflictingReservations(
@@ -425,8 +483,9 @@ export default function CreateReservation() {
 
   // Function to calculate time remaining until closure
   const getTimeUntilClosure = () => {
+    const { endHour, endMinute } = getOperationHoursInfo();
     const closingTime = new Date(currentTime);
-    closingTime.setHours(LAST_RESERVATION_HOUR, 0, 0, 0);
+    closingTime.setHours(endHour, endMinute, 0, 0);
     
     const timeDiff = closingTime.getTime() - currentTime.getTime();
     
@@ -475,7 +534,7 @@ export default function CreateReservation() {
     if (!duration) return [];
     
     // Get actual duration in minutes
-    const durationInMinutes = duration === "all-day" ? 540 : duration === "custom" ? parseInt(debouncedCustomDuration) || 0 : parseInt(duration);
+    const durationInMinutes = duration === "all-day" ? getOperationHoursInfo().durationMinutes : duration === "custom" ? parseInt(debouncedCustomDuration) || 0 : parseInt(duration);
     
     if (durationInMinutes === 0) return [];
 
@@ -593,8 +652,11 @@ export default function CreateReservation() {
   // Static time slot generation (fallback)
   const getStaticTimeSlots = (durationInMinutes: number) => {
     const slots = [];
-    const startHour = OPERATING_START_HOUR; // 8 AM
-    const endHour = 17; // 5 PM (last session must end by 5 PM)
+    const { startHour, startMinute, endHour, endMinute } = getOperationHoursInfo();
+    const startBoundary = new Date();
+    startBoundary.setHours(startHour, startMinute, 0, 0);
+    const endBoundary = new Date();
+    endBoundary.setHours(endHour, endMinute, 0, 0);
     
     // Check if the selected date is today
     const selectedDate = new Date(reservationDate);
@@ -603,7 +665,7 @@ export default function CreateReservation() {
     const now = new Date();
     
     // Generate time slots
-    for (let hour = startHour; hour < endHour; hour++) {
+    for (let hour = startHour; hour <= endHour; hour++) {
       for (let minute = 0; minute < 60; minute += 30) { // 30-minute intervals
         const slotStart = new Date();
         slotStart.setHours(hour, minute, 0, 0);
@@ -611,8 +673,7 @@ export default function CreateReservation() {
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + durationInMinutes);
         
-        // Check if session ends by 5 PM
-        if (slotEnd.getHours() <= 17 && (slotEnd.getHours() < 17 || slotEnd.getMinutes() === 0)) {
+        if (slotStart >= startBoundary && slotEnd <= endBoundary) {
           const startTime = slotStart.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
           const endTime = slotEnd.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
           const militaryStart = `${hour}:${minute.toString().padStart(2, '0')}`;
@@ -692,6 +753,14 @@ export default function CreateReservation() {
       ) : (
         <Button
           onClick={async () => {
+            if (user?.user_type === 'student' && checkingDailyLimit) {
+              showAlert("Please Wait", "Checking your daily reservation limit. Try again in a moment.", "info");
+              return;
+            }
+            if (user?.user_type === 'student' && dailyLimitReached) {
+              showAlert("Daily Reservation Limit", "Students can only make one reservation per day. You already have a reservation for today.", "warning");
+              return;
+            }
             if (isFormComplete()) {
               setSubmitting(true);
               
@@ -733,13 +802,14 @@ export default function CreateReservation() {
                 }
 
                 // Step 3: Create the reservation
-                const actualDuration = duration === "all-day" ? 540 : duration === "custom" ? parseInt(debouncedCustomDuration) : parseInt(duration);
+                const actualDuration = duration === "all-day" ? getOperationHoursInfo().durationMinutes : duration === "custom" ? parseInt(debouncedCustomDuration) : parseInt(duration);
                 const actualPurpose = purpose === "Other" ? customPurpose : purpose;
                 
                 // Calculate start and end times based on selected time slot and duration
                 const getTimeSlotDetails = () => {
                   if (duration === "all-day") {
-                    return { start_time: "08:00", end_time: "17:00" };
+                    const { startTimeMilitary, endTimeMilitary } = getOperationHoursInfo();
+                    return { start_time: startTimeMilitary, end_time: endTimeMilitary };
                   }
                   
                   if (!selectedTimeSlot || !actualDuration) return { start_time: null, end_time: null };
@@ -801,8 +871,11 @@ export default function CreateReservation() {
                     user_id: response.data?.user_id || null,
                     reservation_type: response.data?.reservation_type || newReservation.reservation_type,
                     date: response.data?.reservation_date || newReservation.reservation_date,
-                    timeSlot: duration === 'all-day' ? "All Day (8:00 AM - 7:00 PM)" : response.data?.time_slot || selectedTimeSlot || "To be assigned",
-                    duration: duration === 'all-day' ? "All Day (9 hours)" : response.data?.duration ? `${response.data.duration} mins` : `${newReservation.duration} mins`,
+                    timeSlot: duration === 'all-day' ? `All Day (${getOperationHoursInfo().display})` : response.data?.time_slot || selectedTimeSlot || "To be assigned",
+                    duration: duration === 'all-day' ? (() => {
+                      const minutes = getOperationHoursInfo().durationMinutes;
+                      return minutes % 60 === 0 ? `All Day (${minutes / 60} hours)` : `All Day (${minutes} mins)`;
+                    })() : response.data?.duration ? `${response.data.duration} mins` : `${newReservation.duration} mins`,
                     purpose: response.data?.purpose || newReservation.purpose,
                     notes: response.data?.notes || newReservation.notes,
                     status: response.data?.status || "pending",
@@ -857,7 +930,7 @@ export default function CreateReservation() {
               }
             }
           }}
-          disabled={!isFormComplete() || submitting}
+          disabled={!isFormComplete() || submitting || (user?.user_type === 'student' && checkingDailyLimit)}
           className="flex items-center gap-2"
         >
           <FaCheckCircle className="w-4 h-4" />
@@ -1365,7 +1438,7 @@ export default function CreateReservation() {
                   All Day Reservation
                 </h4>
                 <p className="text-sm text-blue-700 dark:text-blue-400">
-                  The laboratory will be reserved for the entire operating day (8:00 AM - 7:00 PM). 
+                  The laboratory will be reserved for the entire operating day ({getOperationHoursInfo().display}). 
                   No specific time slot selection is required.
                 </p>
               </div>
@@ -1453,7 +1526,7 @@ export default function CreateReservation() {
               
               // Auto-select for all-day if available
               if (isAvailable && !selectedTimeSlot) {
-                setSelectedTimeSlot("08:00"); // Set a default for all-day
+                setSelectedTimeSlot(getOperationHoursInfo().startTimeMilitary); // Set a default for all-day
               }
               
               return (
@@ -1474,7 +1547,7 @@ export default function CreateReservation() {
                           ? 'text-green-800 dark:text-green-300' 
                           : 'text-red-800 dark:text-red-300'
                       }`}>
-                        All Day Reservation (8:00 AM - 7:00 PM)
+                        All Day Reservation ({getOperationHoursInfo().display})
                       </h4>
                     </div>
                     
@@ -1722,7 +1795,7 @@ export default function CreateReservation() {
             <span className="text-gray-600 dark:text-gray-400">Time:</span>
             <span className="font-medium">
               {(() => {
-                if (duration === 'all-day') return 'All Day (8:00 AM - 7:00 PM)';
+                if (duration === 'all-day') return `All Day (${getOperationHoursInfo().display})`;
                 if (!selectedTimeSlot || !duration) return 'Not selected';
                 
                 const actualDuration = duration === 'custom' ? parseInt(customDuration) : parseInt(duration);
@@ -1750,7 +1823,10 @@ export default function CreateReservation() {
           <div className="flex justify-between">
             <span className="text-gray-600 dark:text-gray-400">Duration:</span>
             <span className="font-medium">
-              {duration === 'all-day' ? 'All Day (9 hours)' : duration === 'custom' ? `${customDuration} mins` : `${duration} mins`}
+              {duration === 'all-day' ? (() => {
+                const minutes = getOperationHoursInfo().durationMinutes;
+                return minutes % 60 === 0 ? `All Day (${minutes / 60} hours)` : `All Day (${minutes} mins)`;
+              })() : duration === 'custom' ? `${customDuration} mins` : `${duration} mins`}
             </span>
           </div>
           
@@ -1863,19 +1939,25 @@ export default function CreateReservation() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [computersResponse, laboratoriesResponse, userResponse] = await Promise.all([
+        const [computersResponse, laboratoriesResponse, userResponse, systemDefaultResponse] = await Promise.all([
           getAllComputers(),
           getLaboratories(),
-          getLoggedInUser()
+          getLoggedInUser(),
+          getSystemDefault()
         ]);
         
         const computersData = computersResponse.data.computers;
         const laboratoriesData = laboratoriesResponse.data.laboratories;
         const userData = userResponse.data || userResponse;
+        const systemDefaultData = systemDefaultResponse?.data || systemDefaultResponse;
+        const systemOperationHours = systemDefaultData?.operation_hours;
         
         setComputers(computersData);
         setLaboratories(laboratoriesData);
         setUser(userData);
+        if (typeof systemOperationHours === "string" && systemOperationHours.trim()) {
+          setOperationHours(systemOperationHours.trim());
+        }
       } catch (error) {
         console.error("Failed to fetch data:", error);
       } finally {
@@ -1905,6 +1987,46 @@ export default function CreateReservation() {
       }
     }
   }, [user, reservationDate]);
+
+  useEffect(() => {
+    if (user?.user_type !== 'student') return;
+
+    let cancelled = false;
+
+    const fetchDailyLimit = async () => {
+      setCheckingDailyLimit(true);
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const response = await getReservationHistory(1, 50, undefined, today, today);
+        const reservationsRaw = response?.data?.reservations ?? response?.reservations ?? [];
+        const reservations = Array.isArray(reservationsRaw) ? reservationsRaw : [];
+        const activeReservations = reservations.filter((r: any) => {
+          const status = String(r?.status || '').toLowerCase();
+          return status !== 'cancelled' && status !== 'rejected';
+        });
+
+        if (!cancelled) {
+          setDailyLimitReached(activeReservations.length > 0);
+          setDailyLimitReservation(activeReservations[0] ?? null);
+        }
+      } catch {
+        if (!cancelled) {
+          setDailyLimitReached(false);
+          setDailyLimitReservation(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setCheckingDailyLimit(false);
+        }
+      }
+    };
+
+    fetchDailyLimit();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.user_type]);
 
   // Real-time clock and automatic reservation closure
   useEffect(() => {
@@ -2013,7 +2135,7 @@ export default function CreateReservation() {
                           Please complete your reservation quickly.
                         </p>
                         <p className="text-xs text-orange-600 dark:text-orange-500">
-                          Last reservation time: 4:00 PM • Current time: {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          Reservations close at {formatMilitaryTimeToStandard(getOperationHoursInfo().endTimeMilitary)} • Current time: {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                     </div>
@@ -2022,6 +2144,56 @@ export default function CreateReservation() {
               }
               return null;
             })()}
+
+            {user?.user_type === 'student' && (checkingDailyLimit || dailyLimitReached) && (
+              <div className={`mb-6 p-4 rounded-xl border-2 ${
+                checkingDailyLimit
+                  ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                  : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+              }`}>
+                <div className="flex items-start gap-3">
+                  <FaExclamationTriangle className={`w-5 h-5 mt-0.5 ${
+                    checkingDailyLimit ? 'text-blue-600' : 'text-yellow-600'
+                  }`} />
+                  <div className="flex-1">
+                    <h4 className={`text-sm font-semibold mb-1 ${
+                      checkingDailyLimit ? 'text-blue-800 dark:text-blue-300' : 'text-yellow-800 dark:text-yellow-300'
+                    }`}>
+                      {checkingDailyLimit ? 'Checking daily reservation limit…' : 'Daily reservation limit reached'}
+                    </h4>
+                    {checkingDailyLimit ? (
+                      <p className="text-sm text-blue-700 dark:text-blue-400">
+                        Please wait a moment.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-sm text-yellow-700 dark:text-yellow-400 mb-2">
+                          Students can only make one reservation per day. You already have a reservation for today.
+                        </p>
+                        {dailyLimitReservation && (
+                          <div className="text-xs text-yellow-700 dark:text-yellow-400 mb-3">
+                            <div>
+                              Status: <span className="font-medium capitalize">{dailyLimitReservation.status || 'pending'}</span>
+                            </div>
+                            <div>
+                              Time:{' '}
+                              <span className="font-medium">
+                                {dailyLimitReservation.start_time && dailyLimitReservation.end_time
+                                  ? `${formatMilitaryTimeToStandard(dailyLimitReservation.start_time)} - ${formatMilitaryTimeToStandard(dailyLimitReservation.end_time)}`
+                                  : 'To be assigned'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        <Button size="sm" onClick={() => navigate("/my-reservations")}>
+                          Go to My Reservations
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Mobile Wizard or Desktop Layout */}
             {isMobile ? (
@@ -2469,7 +2641,7 @@ export default function CreateReservation() {
                               All Day Reservation
                             </h4>
                             <p className="text-sm text-blue-700 dark:text-blue-400">
-                              The laboratory will be reserved for the entire operating day (8:00 AM - 7:00 PM). 
+                              The laboratory will be reserved for the entire operating day ({getOperationHoursInfo().display}). 
                               No specific time slot selection is required.
                             </p>
                           </div>
@@ -2584,7 +2756,7 @@ export default function CreateReservation() {
                           
                           // Auto-select for all-day if available
                           if (isAvailable && !selectedTimeSlot) {
-                            setSelectedTimeSlot("08:00");
+                            setSelectedTimeSlot(getOperationHoursInfo().startTimeMilitary);
                           }
                           
                           return (
@@ -2605,7 +2777,7 @@ export default function CreateReservation() {
                                       ? 'text-green-800 dark:text-green-300' 
                                       : 'text-red-800 dark:text-red-300'
                                   }`}>
-                                    All Day (8:00 AM - 7:00 PM)
+                                    All Day ({getOperationHoursInfo().display})
                                   </h4>
                                 </div>
                                 
@@ -2807,7 +2979,7 @@ export default function CreateReservation() {
                   <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                     <p className="text-xs text-blue-800 dark:text-blue-300">
                       <span className="font-medium"><FaLightbulb className="inline w-3 h-3 mr-1" /> Operating Schedule:</span> 
-                      Monday - Saturday: 8:00 AM - 7:00 PM. All sessions must end by 7:00 PM. Closed Sundays.
+                      Monday - Saturday: {getOperationHoursInfo().display}. All sessions must end by {formatMilitaryTimeToStandard(getOperationHoursInfo().endTimeMilitary)}. Closed Sundays.
                     </p>
                   </div>
                 </div>
@@ -2865,7 +3037,10 @@ export default function CreateReservation() {
                       <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Duration:</span>
                       <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                         {duration === "all-day" 
-                          ? "All Day (9 hours)"
+                          ? (() => {
+                            const minutes = getOperationHoursInfo().durationMinutes;
+                            return minutes % 60 === 0 ? `All Day (${minutes / 60} hours)` : `All Day (${minutes} mins)`;
+                          })()
                           : duration === "custom" 
                           ? (customDuration ? `${customDuration} mins` : "Custom (not set)")
                           : duration 
@@ -2879,7 +3054,7 @@ export default function CreateReservation() {
                         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Time Slot:</span>
                         <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                           {(() => {
-                            if (duration === "all-day") return "All Day (8:00 AM - 7:00 PM)";
+                            if (duration === "all-day") return `All Day (${getOperationHoursInfo().display})`;
                             
                             const actualDuration = duration === 'custom' ? parseInt(customDuration) : parseInt(duration);
                             if (!actualDuration) return selectedTimeSlot;
@@ -3024,7 +3199,7 @@ export default function CreateReservation() {
                                 if (timeCheck.reason === "sunday_closed") {
                                   items.push(<li key="sunday">• We are closed on Sundays (Operating days: Monday - Saturday)</li>);
                                 } else {
-                                  items.push(<li key="hours">• Current time is outside operating hours (8:00 AM - 7:00 PM, Mon-Sat)</li>);
+                                  items.push(<li key="hours">• Current time is outside operating hours ({getOperationHoursInfo().display}, Mon-Sat)</li>);
                                 }
                               }
                               
@@ -3078,9 +3253,19 @@ export default function CreateReservation() {
                     }`}
                     size="md"
                     variant="primary"
-                    disabled={!isFormComplete() || submitting}
+                    disabled={!isFormComplete() || submitting || (user?.user_type === 'student' && checkingDailyLimit)}
                     onClick={async () => {
                       const timeCheck = isWithinOperatingHours();
+                      
+                      if (user?.user_type === 'student' && checkingDailyLimit) {
+                        showAlert("Please Wait", "Checking your daily reservation limit. Try again in a moment.", "info");
+                        return;
+                      }
+
+                      if (user?.user_type === 'student' && dailyLimitReached) {
+                        showAlert("Daily Reservation Limit", "Students can only make one reservation per day. You already have a reservation for today.", "warning");
+                        return;
+                      }
                       
                       if (!isFormComplete() || submitting) {
                         if (!timeCheck.allowed) {
@@ -3131,13 +3316,14 @@ export default function CreateReservation() {
                         }
 
                         // Step 3: Create the reservation
-                        const actualDuration = duration === "all-day" ? 540 : duration === "custom" ? parseInt(debouncedCustomDuration) : parseInt(duration);
+                        const actualDuration = duration === "all-day" ? getOperationHoursInfo().durationMinutes : duration === "custom" ? parseInt(debouncedCustomDuration) : parseInt(duration);
                         const actualPurpose = purpose === "Other" ? customPurpose : purpose;
                         
                         // Calculate start and end times based on selected time slot and duration
                         const getTimeSlotDetails = () => {
                           if (duration === "all-day") {
-                            return { start_time: "08:00", end_time: "17:00" };
+                            const { startTimeMilitary, endTimeMilitary } = getOperationHoursInfo();
+                            return { start_time: startTimeMilitary, end_time: endTimeMilitary };
                           }
                           
                           if (!selectedTimeSlot || !actualDuration) return { start_time: null, end_time: null };
@@ -3201,7 +3387,7 @@ export default function CreateReservation() {
                             timeSlot: (() => {
                               // Handle all-day reservations
                               if (duration === "all-day") {
-                                return "All Day (8:00 AM - 7:00 PM)";
+                                return `All Day (${getOperationHoursInfo().display})`;
                               }
                               
                               // Use start_time and end_time from response if available
@@ -3232,7 +3418,10 @@ export default function CreateReservation() {
                               
                               return response.data?.time_slot || selectedTimeSlot || "To be assigned";
                             })(),
-                            duration: duration === "all-day" ? "All Day (9 hours)" : response.data?.duration ? `${response.data.duration} mins` : `${actualDuration} mins`,
+                            duration: duration === "all-day" ? (() => {
+                              const minutes = getOperationHoursInfo().durationMinutes;
+                              return minutes % 60 === 0 ? `All Day (${minutes / 60} hours)` : `All Day (${minutes} mins)`;
+                            })() : response.data?.duration ? `${response.data.duration} mins` : `${actualDuration} mins`,
                             purpose: response.data?.purpose || actualPurpose,
                             notes: response.data?.notes || notes,
                             status: response.data?.status || "pending",
